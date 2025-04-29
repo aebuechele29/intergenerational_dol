@@ -1,25 +1,19 @@
 # Load merged data
 sample <- readRDS(here("1_build_panel", "output", "merged.rds"))
 
-max_year <- max(sample$year)
+max_year <- efficient_max(sample$year)
 
 sample <- sample %>% # Limit sample to SEO and SRO
   mutate(
     age = replace(age, age == 999, NA), # Change weird age code
-    # sequence = case_when(
-    # (relation != 0 & year == 1968) ~ 22, # Sequence NA in 1968
-    # TRUE ~ sequence # Use the renamed `sequence` variable
-    # ),
     birth = round(year - age) # Create Birth Year
-  ) # %>%
-# filter(sequence != 0 &
-# (sequence < 71 | sequence > 89))
+  ) 
 
 # Capture year censored
 sample <- sample %>%
   group_by(pid) %>%
   mutate(
-    censored_year = max(year[year < max_year], na.rm = TRUE)
+    censored_year = efficient_max(year[year < max_year], na.rm = TRUE)
   ) %>%
   ungroup()
 
@@ -32,11 +26,13 @@ sample <- sample %>%
   ungroup()
 
 # Recode Relation ---------------------------------------------------------
+# Exclude relation == 0 (Latino sample) 
+sample1 <- sample %>%
+  filter(relation != 0)
 # 1968 1 head 2 wife/ spouse 3, child 4-7 other 8 spouse 9/ 0 NA
 # 1969-1982 8 other 9 spouse 0 NA
 # 1983-1999 10 head 20 22 88 90 spouse 30-38 83 child 40-75 95-98 other 0 NA
 # 2017 92 spouse
-
 # 1968-1982 4 = sibling of head; 5 = parent of head; 7 = other adult relative
 # 1983-  40, 47, 48 = sibling; 50, 57, 58 = parent; 
 # 60, 65 grand/ great-grandson/ daughter
@@ -74,7 +70,7 @@ sample <- sample %>%
     child = ifelse(relation == 3, 1, 0)
   ) %>%
   group_by(pid) %>%
-  mutate(ever_child = max(child)) %>%
+  mutate(ever_child = efficient_max(child)) %>%
   ungroup() %>%
   select(-child)
 
@@ -127,11 +123,11 @@ sample <- sample %>%
 sample <- sample %>%
   group_by(pid) %>%
   mutate(
-    max_edu2 = max(edu2, na.rm = TRUE),
-    max_edu3 = max(edu3, na.rm = TRUE),
-    max_hs = max(hs, na.rm = TRUE),
-    max_ba = max(ba, na.rm = TRUE),
-    max_ma = max(ma, na.rm = TRUE)
+    max_edu2 = efficient_max(edu2, na.rm = TRUE),
+    max_edu3 = efficient_max(edu3, na.rm = TRUE),
+    max_hs = efficient_max(hs, na.rm = TRUE),
+    max_ba = efficient_max(ba, na.rm = TRUE),
+    max_ma = efficient_max(ma, na.rm = TRUE)
   ) %>%
   ungroup() %>%
   mutate(
@@ -202,7 +198,7 @@ sample <- sample %>% # Income only for heads and spouses
 sample <- sample %>%
   group_by(pid) %>%
   mutate(
-    income_all = mean(income, na.rm = TRUE)
+    income_all = efficient_mean(income, na.rm = TRUE)
   ) %>%
   ungroup()
 
@@ -253,7 +249,6 @@ sample <- sample %>%
 # Clean First Child and Marriage ----------------------------------------
 # First child: 1900-2019 actual year, 9999 = missing or incomplete
 
-# Recode first_child and first_marriage to integer first, then clean
 sample <- sample %>%
   mutate(
     first_child = as.integer(first_child),
@@ -294,7 +289,7 @@ sample <- sample %>%
     )
   )
 
-# Clean Marriage --------------------------------------------
+# Clean Marital Status --------------------------------------------
 # Marital status of head
 # 1 married (from 1977 also permanently cohabiting; 1982 switched from spouse
 # may not be in FU to spouse must be in FU);
@@ -385,67 +380,61 @@ sample <- sample %>%
       !is.infinite(max_race) & !is.na(max_race) ~ as.double(year),
       TRUE ~ 0
     ),
-    max_race_year = max(race_year, na.rm = TRUE),
+    max_race_year = efficient_max(race_year, na.rm = TRUE),
     # Determine race_pid based on max_race_year
     race_pid = case_when(
       max_race_year == year ~ max_race,
       TRUE ~ NA_real_
     ),
-    race = max(race_pid, na.rm = TRUE)
+    race = efficient_max(race_pid, na.rm = TRUE)
   ) %>%
   mutate(race = na_if(race, -Inf)) %>%
   ungroup()
 
 # Handle race for each pid/year combination
-sample <- sample %>%
-  group_by(pid, year) %>%
-  mutate(
-    # Determine head_race for relation == 1 (head of household)
-    head_race = case_when(
-      relation == 1 ~ race,
-      TRUE ~ NA_real_
-    ),
-    # Determine other_race for non-head of household
-    other_race = case_when(
-      relation != 1 ~ race,
-      TRUE ~ NA_real_
-    ),
-    # Get max values for head_race and other_race
-    max_head_race = max(head_race, na.rm = TRUE),
-    max_other_race = max(other_race, na.rm = TRUE)
-  ) %>%
-  ungroup() %>%
-  mutate(
-    # Combine the two max_race values into max_person_race
-    max_person_race = case_when(
-      !is.infinite(max_head_race) & !is.na(max_head_race) ~ max_head_race,
-      !is.infinite(max_other_race) & !is.na(max_other_race) ~ max_other_race,
-      TRUE ~ NA_real_
+sample_fast <- sample %>%                       
+  summarise(                                    
+    max_head_race  = efficient_max(race[relation == 1], na.rm = TRUE),
+    max_other_race = efficient_max(race[relation != 1], na.rm = TRUE),
+    .by = c(pid, year)                         
+  ) %>% 
+  mutate(                                       
+    max_person_race = coalesce(
+      na_if(max_head_race , Inf),               
+      na_if(max_other_race, Inf)               
     )
   )
 
-# Final race assignment and cleanup
-sample <- sample %>%
-  group_by(pid) %>%
-  mutate(
-    max_max_race = max(max_person_race, na.rm = TRUE),
-    race = case_when(
-      is.na(race) & !is.infinite(max_max_race) ~ max_max_race,
-      is.na(race) & is.infinite(max_max_race) ~ NA_real_,
-      TRUE ~ race
-    )
-  ) %>%
-  ungroup() %>%
-  select(-contains("max"), -contains("race_"), -contains("head"), -other_race)
+sample <- left_join(sample, sample_fast, by = c("pid", "year"))
 
-# Recode black as 1 if race == 3, 0 if race is 1 or 2, and leave other values as race
-sample <- sample %>%
+pid_lookup <- sample |>                                
+  summarise(                                        
+    max_max_race = efficient_max(max_person_race, na.rm = TRUE),
+    .by = pid
+  )
+
+sample <- sample |>
+  left_join(pid_lookup, by = "pid") |>
   mutate(
-    black = case_when(
-      race == 3 ~ 1,
-      race %in% c(1, 2) ~ 0,
-      TRUE ~ race
+    race = coalesce(                       
+      race, 
+      na_if(max_max_race, Inf)                      
+    ),
+    black = case_when(                          
+      race == 3        ~ 1,
+      race %in% 1:2    ~ 0,
+      TRUE             ~ race
     )
+  ) |>
+  select(                                      
+    -max_max_race, 
+    -starts_with("max_"), 
+    -ends_with("_race"),
+    -race_first,
+    -race_second,
+    -race_third,
+    -race_fourth,
+    -race_pid
   )
 
 # Create Sibling Vars   ------------------------------------------------------
@@ -467,7 +456,7 @@ sample <- sample %>%
 sample <- sample %>%
   group_by(pid) %>%
   mutate(
-    n_sibs = max(y_n_sibs, na.rm = TRUE),
+    n_sibs = efficient_max(y_n_sibs, na.rm = TRUE),
     n_sibs = ifelse(is.infinite(n_sibs), NA_real_, n_sibs)
   ) %>%
   ungroup()
@@ -478,31 +467,26 @@ sample <- sample %>%
   group_by(year, fam_id, relation) %>%
   arrange(year, fam_id, relation, birth)
 
-# Assign sibling rank w/in family 
-sample <- sample %>%
-  mutate(
-    y_sib_rank = case_when(
-      relation == 3 ~ cumsum(one),
-      TRUE ~ NA_real_
-    )
-  ) %>%
-  ungroup()
+sample[,
+       `:=`(
+         y_sib_rank = {          
+           out <- rep(NA_real_, .N)
+           ch  <- which(relation == 3L)
+           if (length(ch)) out[ch] <- seq_along(ch)
+           out[ n_sibs == 0L ] <- 0L
+           out
+         },
+         n_children = n_sibs + 1L
+       ),
+       by = pid
+]
 
-# Calculate number of children and adjust rank
-sample <- sample %>%
-  mutate(
-    y_sib_rank = ifelse(n_sibs == 0, 0, y_sib_rank),
-    n_children = n_sibs + 1
-  )
-
-# Save sibling rank
-sample <- sample %>%
-  group_by(pid) %>%
-  mutate(
-    sib_rank = max(y_sib_rank, na.rm = TRUE),
-    sib_rank = ifelse(is.infinite(sib_rank), NA_real_, sib_rank)
-  ) %>%
-  ungroup()
+sample[ , sib_rank := efficient_max(y_sib_rank, na.rm = TRUE), by = pid]
+sample[ , sib_rank := fifelse(is.finite(sib_rank), sib_rank, NA_real_)]
+sample[ , c("y_sib_rank", "one", "y_n_sibs", "n") := NULL ]
 
 sample <- sample %>%
-  select(-c(y_sib_rank, one, y_n_sibs, n))
+  select(-c(one, y_n_sibs, n))
+
+rm(sample_fast, pid_lookup)
+saveRDS(sample, here("2_clean_panel", "output", "clean.rds"))
