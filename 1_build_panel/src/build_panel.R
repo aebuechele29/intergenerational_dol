@@ -3,12 +3,11 @@ setwd("/Users/amanda/Desktop/clan_project")
 # here::i_am("1_build_panel/src/build_panel.R")
 
 # The purpose of this file is to build a panel by:
-# 1. Initialize PSID data downloaded from the PSID cross-year selection tool [lines 12-50]
-# 2. Define functions to extract variables using the CWF file [lines 50-125]
-# 3. Extract family and individual variables [lines 123-235]
-# 4. Merge family and individual data [lines 237-281]
-# 5. Initialize FIMS data downloaded from the PSID website [lines 283-325]
-# 6. Merge FIMS data with family and individual data [lines 327-386]
+# 1. Initialize PSID data downloaded from the PSID cross-year selection tool 
+# 2. Define functions to extract variables using the CWF file 
+# 3. Extract family and individual variables 
+# 5. Initialize FIMS data downloaded from the PSID website 
+# 6. Merge FIMS data with family and individual data 
 
 # Load required libraries -------------------------------------------------s
 if (!require("pacman")) {

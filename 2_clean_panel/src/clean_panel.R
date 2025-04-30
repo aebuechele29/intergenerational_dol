@@ -26,18 +26,18 @@ sample <- sample %>%
   ungroup()
 
 # Recode Relation ---------------------------------------------------------
-# Exclude relation == 0 (Latino sample) 
+  # Exclude relation == 0 (Latino sample) 
 sample1 <- sample %>%
   filter(relation != 0)
-# 1968 1 head 2 wife/ spouse 3, child 4-7 other 8 spouse 9/ 0 NA
-# 1969-1982 8 other 9 spouse 0 NA
-# 1983-1999 10 head 20 22 88 90 spouse 30-38 83 child 40-75 95-98 other 0 NA
-# 2017 92 spouse
-# 1968-1982 4 = sibling of head; 5 = parent of head; 7 = other adult relative
-# 1983-  40, 47, 48 = sibling; 50, 57, 58 = parent; 
-# 60, 65 grand/ great-grandson/ daughter
-# 66, 67, 68, 69 = grand/ great-grandparent;
-# 70, 71 = nephew; 72, 73 = uncle/ aunt; 74, 75 = cousin; 95, 96, 97 = other
+  # 1968 1 head 2 wife/ spouse 3, child 4-7 other 8 spouse 9/ 0 NA
+  # 1969-1982 8 other 9 spouse 0 NA
+  # 1983-1999 10 head 20 22 88 90 spouse 30-38 83 child 40-75 95-98 other 0 NA
+  # 2017 92 spouse
+  # 1968-1982 4 = sibling of head; 5 = parent of head; 7 = other adult relative
+  # 1983-  40, 47, 48 = sibling; 50, 57, 58 = parent; 
+  # 60, 65 grand/ great-grandson/ daughter
+  # 66, 67, 68, 69 = grand/ great-grandparent;
+  # 70, 71 = nephew; 72, 73 = uncle/ aunt; 74, 75 = cousin; 95, 96, 97 = other
 
 sample <- sample %>%
   mutate(
@@ -75,11 +75,11 @@ sample <- sample %>%
   select(-child)
 
 # Remove heads of households who are in institutions (251 of them; created bugs)
-# THIS LIMITS THE SAMPLE MORE THAN IT SHOULD (~3 MILLION PERSON YEARS TO <1 MILLION)
-# sample <- sample %>%
-# filter(relation != 1 |
-# (relation == 1 & (sequence != 51 &
-# sequence != 52)))
+  # THIS LIMITS THE SAMPLE MORE THAN IT SHOULD (~3 MILLION PERSON YEARS TO <1 MILLION)
+  # sample <- sample %>%
+  # filter(relation != 1 |
+  # (relation == 1 & (sequence != 51 &
+  # sequence != 52)))
 
 
 # Clean Education ---------------------------------------------------------
@@ -172,14 +172,14 @@ sample <- sample %>%
   )
 
 # Clean Income ------------------------------------------------------------
-# Income top coded at 999,999; from 1972 1 = 1 or less;
-# 1980 top coded at 999,999;
-# 1981 - 1983 top coded at 9,999,999; 1984-1985 top coded 999,999;
-# 1986-1993 top 9,999,999
-# 1994-1995 started including negatives and 9,999,999 all of a
-# sudden means latino sample (which we don't have)
-# 1996-1997 drop latino thing (no more 9,999,999);
-# 1999 - 2019 bring back top coding of 9,999,999
+  # Income top coded at 999,999; from 1972 1 = 1 or less;
+  # 1980 top coded at 999,999;
+  # 1981 - 1983 top coded at 9,999,999; 1984-1985 top coded 999,999;
+  # 1986-1993 top 9,999,999
+  # 1994-1995 started including negatives and 9,999,999 all of a
+  # sudden means latino sample (which we don't have)
+  # 1996-1997 drop latino thing (no more 9,999,999);
+  # 1999 - 2019 bring back top coding of 9,999,999
 sample <- sample %>% # Income only for heads and spouses
   mutate(
     parental_income =
@@ -203,9 +203,9 @@ sample <- sample %>%
   ungroup()
 
 # Clean homeownership -----------------------------------------------------
-# Homeownership: 1 = own; 5 = rents; 8 = neither;
-# from 1994 9 = DK/ NA/ refused, 0 = inappropriate
-# From 2007 9 = "wild code"
+  # Homeownership: 1 = own; 5 = rents; 8 = neither;
+  # from 1994 9 = DK/ NA/ refused, 0 = inappropriate
+  # From 2007 9 = "wild code"
 
 sample <- sample %>%
   rename(own_home = house_status) %>%
@@ -235,7 +235,7 @@ sample <- sample %>% # Parental homeownership
   )
 
 # Clean Number of Children (# Live Births)   ----------------------------
-# Children: 98 NA/ DK 99 No birth history collected
+  # Children: 98 NA/ DK 99 No birth history collected
 sample <- sample %>%
   mutate(
     children =
@@ -247,7 +247,7 @@ sample <- sample %>%
   )
 
 # Clean First Child and Marriage ----------------------------------------
-# First child: 1900-2019 actual year, 9999 = missing or incomplete
+  # First child: 1900-2019 actual year, 9999 = missing or incomplete
 
 sample <- sample %>%
   mutate(
@@ -290,13 +290,13 @@ sample <- sample %>%
   )
 
 # Clean Marital Status --------------------------------------------
-# Marital status of head
-# 1 married (from 1977 also permanently cohabiting; 1982 switched from spouse
-# may not be in FU to spouse must be in FU);
-# 2 single; 3 widowed; 4 divorced;
-# 5 separated (1982 also got legally married but spouse not in FU);
-# 9 NA (1968, not 1969-1981, from 1982 also DK)
-# 1977 started other variable differentiating cohabiting vs legally married
+  # Marital status of head
+  # 1 married (from 1977 also permanently cohabiting; 1982 switched from spouse
+  # may not be in FU to spouse must be in FU);
+  # 2 single; 3 widowed; 4 divorced;
+  # 5 separated (1982 also got legally married but spouse not in FU);
+  # 9 NA (1968, not 1969-1981, from 1982 also DK)
+  # 1977 started other variable differentiating cohabiting vs legally married
 
 sample <- sample %>% # Recode marital status
   mutate(
@@ -309,9 +309,9 @@ sample <- sample %>% # Recode marital status
   )
 
 # Clean State -------------------------------------------------------------
-# 1-51 PSID state code
-# 0 Inap. outside U.S. proper (from 1970)
-# 99 DK, NA (from 1972)
+  # 1-51 PSID state code
+  # 0 Inap. outside U.S. proper (from 1970)
+  # 99 DK, NA (from 1972)
 
 sample <- sample %>%
   mutate(
@@ -324,8 +324,8 @@ sample <- sample %>%
   )
 
 # Clean Race --------------------------------------------------------------
-# Recode Race
-# 1 white 2 black 3 4 7 other 8 9 0 NA
+  # Recode Race
+  # 1 white 2 black 3 4 7 other 8 9 0 NA
 sample <- sample %>%
   mutate(
     across(
@@ -371,8 +371,8 @@ sample <- sample %>%
   )
 
 # According to codebook mention order doesn't matter
-# Black if black exists, then other then white -
-# Sayer, Cohen, and Casper (2004)
+  # Black if black exists, then other then white -
+  # Sayer, Cohen, and Casper (2004)
 sample <- sample %>%
   group_by(pid) %>%
   mutate(
@@ -407,14 +407,15 @@ sample_fast <- sample %>%
 
 sample <- left_join(sample, sample_fast, by = c("pid", "year"))
 
-pid_lookup <- sample |>                                
+# Uses a Summary + Join Approach to Improve Speed / Memory Usage
+pid_lookup <- sample %>%                                
   summarise(                                        
     max_max_race = efficient_max(max_person_race, na.rm = TRUE),
     .by = pid
   )
 
-sample <- sample |>
-  left_join(pid_lookup, by = "pid") |>
+sample <- sample %>%
+  left_join(pid_lookup, by = "pid") %>%
   mutate(
     race = coalesce(                       
       race, 
@@ -425,7 +426,7 @@ sample <- sample |>
       race %in% 1:2    ~ 0,
       TRUE             ~ race
     )
-  ) |>
+  ) %>%
   select(                                      
     -max_max_race, 
     -starts_with("max_"), 
@@ -437,56 +438,4 @@ sample <- sample |>
     -race_pid
   )
 
-# Create Sibling Vars   ------------------------------------------------------
-
-# Count number of people by year, family, and relation
-sample <- sample %>%
-  add_count(year, fam_id, relation, name = "n")  # 'n' is now a column
-
-# Count siblings
-sample <- sample %>%
-  mutate(
-    y_n_sibs = case_when(
-      relation == 3 ~ n - 1,
-      TRUE ~ NA_real_
-    )
-  )
-
-# Count individual max # of siblings over time
-sample <- sample %>%
-  group_by(pid) %>%
-  mutate(
-    n_sibs = efficient_max(y_n_sibs, na.rm = TRUE),
-    n_sibs = ifelse(is.infinite(n_sibs), NA_real_, n_sibs)
-  ) %>%
-  ungroup()
-
-# Arrange by birth order
-sample <- sample %>%
-  mutate(one = 1) %>%
-  group_by(year, fam_id, relation) %>%
-  arrange(year, fam_id, relation, birth)
-
-sample[,
-       `:=`(
-         y_sib_rank = {          
-           out <- rep(NA_real_, .N)
-           ch  <- which(relation == 3L)
-           if (length(ch)) out[ch] <- seq_along(ch)
-           out[ n_sibs == 0L ] <- 0L
-           out
-         },
-         n_children = n_sibs + 1L
-       ),
-       by = pid
-]
-
-sample[ , sib_rank := efficient_max(y_sib_rank, na.rm = TRUE), by = pid]
-sample[ , sib_rank := fifelse(is.finite(sib_rank), sib_rank, NA_real_)]
-sample[ , c("y_sib_rank", "one", "y_n_sibs", "n") := NULL ]
-
-sample <- sample %>%
-  select(-c(one, y_n_sibs, n))
-
-rm(sample_fast, pid_lookup)
 saveRDS(sample, here("2_clean_panel", "output", "clean.rds"))
