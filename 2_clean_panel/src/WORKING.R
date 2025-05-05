@@ -1,44 +1,3 @@
-# % childhood years hh married --------------------------------------------
-
-sample <- sample %>%
-  mutate(
-    child_hh_married =
-      case_when(
-        ((year - birth) < 15 & (year - birth) > 0) &
-          relation == 3 & married == 1 ~ 1,
-        ((year - birth) < 15 & (year - birth) > 0) &
-          relation == 3 & married == 0 ~ 0,
-        TRUE ~ NA_real_
-      )
-  ) %>%
-  group_by(pid) %>%
-  mutate(
-    pct_hh_married = (mean(child_hh_married, na.rm = TRUE)) * 100,
-    pct_hh_married = na_if(pct_hh_married, -Inf)
-  ) %>%
-  ungroup() %>%
-  select(-c(child_hh_married, marital))
-
-
-# Proportion in single parent hh ages 0-14 --------------------------------------------
-sample <- sample %>%
-  mutate(has_single_parent =
-           case_when(
-             coresiding_parent_count == 1 ~ 1,
-             !is.na(coresiding_parent_count) ~ 0,
-             TRUE ~ NA_real_
-           )) %>%
-  group_by(pid) %>%
-  mutate(
-    prop_single_parent =
-      efficient_mean(has_single_parent, na.rm = TRUE)
-  ) %>%
-  ungroup() %>%
-  mutate(prop_single_parent = ifelse(is.nan(prop_single_parent),
-                                     NA_real_, prop_single_parent
-  )) %>%
-  select(-has_single_parent)
-
 # Calculate parent-child co-residence
 parents_in_hh <- sample %>% 
   left_join(p_fims,
@@ -68,58 +27,6 @@ sample <- sample %>%
 
 rm(parents_per_child, parents_in_hh, p_fims) 
 
-# Clean Year of Death ----------------------------------------------------------
-
-sample <- sample %>%
-  mutate(
-    str_yod = as.character(yod),
-    start_year = str_sub(str_yod, start = 1, end = -3),
-    end_year = str_sub(str_yod, start = -2, end = -1),
-    dbl_start = as.double(start_year),
-    dbl_end = as.double(end_year)
-  ) %>%
-  rowwise() %>%
-  mutate(
-    ave_year = round(mean(
-      c_across(
-        c(
-          dbl_start,
-          dbl_end
-        )
-      ),
-      na.rm = TRUE
-    ))
-  ) %>%
-  ungroup()
-
-sample <- sample %>%
-  mutate(
-    ave_char = case_when(
-      ave_year < 10 ~ str_c("200", as.character(ave_year)),
-      (ave_year < 20 & ave_year > 9) ~
-        str_c("20", as.character(ave_year)),
-      ave_year > 20 ~ str_c("19", as.character(ave_year)),
-      TRUE ~ NA_character_
-    ),
-    final_year = as.integer(case_when(
-      yod == 9999 ~ NA_real_,
-      (dbl_start != 20 & dbl_start != 19) &
-        (ave_char > 1900 & ave_char < 2200) ~
-        as.double(ave_char),
-      TRUE ~ yod
-    ))
-  ) %>%
-  select(-c(
-    ave_char, ave_year, dbl_end, dbl_start, end_year,
-    start_year, str_yod, yod
-  )) %>%
-  rename(yod = final_year)
-
-# When available, the exact year of death is recorded.
-# When a range of years was reported, this variable contains
-# a four digit code in which the first two digits represent the first
-# possible year of death, and the last two digits represent the last
-# possible year.
 
 # Select Weights  ---------------------------------------------------------
 
@@ -203,22 +110,17 @@ reshaped <- sample %>%
   )
 
 
-# Mark Focal Children -----------------------------------------------------
-
-reshaped <- reshaped %>%
+sample <- sample %>% # Parental homeownership
   mutate(
-    sample_child =
+    parental_own_home =
       case_when(
-        birth < 1980 ~ 0,
-        max_year - birth >= 25 ~ 1,
+        relation == 3 ~ own_home,
+        TRUE ~ NA_real_
+      ),
+    own_home = # Only head and spouse actually own
+      case_when(
+        relation == 1 | relation == 2 ~ own_home,
+        is.na(own_home) ~ NA_real_,
         TRUE ~ 0
       )
   )
-
-
-# Saves file -----------------------------------------------------------
-
-save(reshaped, file = file.path(
-  path, "clean_merged",
-  "output", "clean_merged.Rds"
-))

@@ -1,13 +1,17 @@
-# Load merged data
+# INPUTS: 1_build_panel/output/merged.rds, functions/src/functions.R
+# OUTPUTS: 
+
+# Load Merged Data ---------------------------------------------------
 sample <- readRDS(here("1_build_panel", "output", "merged.rds"))
 
+# Limit Sample & Create Variables for Clan Construction --------------
 max_year <- efficient_max(sample$year)
 
-sample <- sample %>% # Limit sample to SEO and SRO
+sample <- sample %>%
   mutate(
-    age = replace(age, age == 999, NA), # Change weird age code
-    birth = round(year - age) # Create Birth Year
-  ) 
+    age = if_else(age == 999, NA_real_, age),
+    birth = round(year - age)
+  )
 
 # Capture year censored
 sample <- sample %>%
@@ -25,10 +29,7 @@ sample <- sample %>%
   ) %>%
   ungroup()
 
-# Recode Relation ---------------------------------------------------------
-  # Exclude relation == 0 (Latino sample) 
-sample1 <- sample %>%
-  filter(relation != 0)
+# CLEAN IDENTIFIERS -------------------------------------------------------------
   # 1968 1 head 2 wife/ spouse 3, child 4-7 other 8 spouse 9/ 0 NA
   # 1969-1982 8 other 9 spouse 0 NA
   # 1983-1999 10 head 20 22 88 90 spouse 30-38 83 child 40-75 95-98 other 0 NA
@@ -37,11 +38,11 @@ sample1 <- sample %>%
   # 1983-  40, 47, 48 = sibling; 50, 57, 58 = parent; 
   # 60, 65 grand/ great-grandson/ daughter
   # 66, 67, 68, 69 = grand/ great-grandparent;
-  # 70, 71 = nephew; 72, 73 = uncle/ aunt; 74, 75 = cousin; 95, 96, 97 = other
+  # 70, 71 = nephew; 72, 73 = uncle/ aunt; 74, 75 = cousin; 95, 96, 97 = other 
 
+# I think the non_parent_fam is unnecessary but leaving for now 20250504
 sample <- sample %>%
   mutate(
-    # Creating variable to later calculate co-residence with family members over 18
     non_parent_fam = 
       case_when(
         (relation == 4 | relation == 5 | relation == 7 |
@@ -74,134 +75,105 @@ sample <- sample %>%
   ungroup() %>%
   select(-child)
 
-# Remove heads of households who are in institutions (251 of them; created bugs)
-  # THIS LIMITS THE SAMPLE MORE THAN IT SHOULD (~3 MILLION PERSON YEARS TO <1 MILLION)
-  # sample <- sample %>%
-  # filter(relation != 1 |
-  # (relation == 1 & (sequence != 51 &
-  # sequence != 52)))
+# CLEAN INCOME AND WEALTH ------------------------------------------------------------------
+    # -------------------------------
+    # Topcoding Rules 
+    # -------------------------------
 
+    # Total Income = income_all [V81]
+    # 1969–1979: topcode = 99,999
+    # 1980, 1984–1985: topcode = 999,999
+    # 1981–1983, 1986–1993, 1999–2021: topcode = 9,999,999
+    # 1994–1997: topcode = 9,999,998; 9,999,999 = Latino sample
 
-# Clean Education ---------------------------------------------------------
+    # Taxable Income Head & Spouse = income_tax_hs [V76]
+    # 1968: -242 to 1 = loss; 1–80,000 = profit
+    # 1969, 1971–1978: topcode = 99,999
+    # 1979–1980: topcode = 999,999
+    # 1982–1996, 1999–2021: topcode = 9,999,999
+    # 1999: no topcode
+
+    # Taxable Income – Others = income_tax_others [V79]
+    # 1969–1983: topcode = 99,999
+    # 1984–1993: topcode = 999,999
+    # 1994–2021: topcode = 9,999,998; 9,999,999 = Latino sample (1994–1995)
+
+    # Transfer Income – Head & Spouse = transfer_hs [V1220]
+    # 1970–1992: topcode = 99,999+
+    # 1993: topcode = 999,999+
+    # 1994–1995: topcode = 9,999,998; 9,999,999 = Latino sample
+    # 1996: topcode = 9,999,998
+    # 1997: topcode = 999,999+
+    # 1999–2009: topcode = 9,999,998+
+    # 2011–2021: topcode = 9,999,997+
+    # 1994–2021: excludes Social Security — add manually
+    # Note: Exclude or adjust top 1% values (1994–2021)
+
+    # Transfer Income – Others = transfer_others1, transfer_others 2 [V527 (1969–1993), V11576 (1985–2021)]
+    # Same topcodes as Transfer – Head & Spouse
+    # V527 is prorated; V11576 is not — merge carefully
+
+    # Household Wealth Excl. Home Equity = wealth_nohouse [S116]
+    # 1984–2005: top = 999,999,998; missing = -99,999,999
+    # 2007–2009: top = 999,999,996
+    # 2011–2021: top = 999,999,997
+    # Valid ranges: negative (≤ -1), 0, positive (≥ 1)
+
+    # Household Wealth Incl. Home Equity = wealth [S117]
+    # Same ranges and topcodes as [S116]; includes home equity
+
+    # Farm/Business Value = farm_bus [S103]
+    # 1984–2005: top = 999,999,998
+    # 2007–2009: top = 999,999,996
+    # 2011–2021: top = 999,999,997
+    # Valid: neg (≤ -1), 0, pos (≥ 1)
+
+    # Checking/Saving Value = checking [S105]
+    # 1984–2003: top = 999,999,998
+    # 2005: includes valid negatives; top = 999,999,999
+    # 2007–2009: top = 999,999,996
+    # 2011–2017: top = 999,999,997
+    # 0 = no assets
+
+    # Other Real Estate Value = real_estate [S109]
+    # Same coding as [S116]; top = 998/996/997 by year
+
+    # Stocks Value = stocks [S111]
+    # Same pattern as [S116]; top = 998/996/997 by year
+
+    # Vehicle Values = vehicles [S113]
+    # Same as [S116]; neg, 0, pos; top = 998/996/997 by wave
+
+    # Other Assets = other_assets [S115]
+    # Same topcoding pattern as [S116]; neg, 0, pos; top = 998/996/997
+
+    # Other Debt = other_debt [S107]
+    # 1984–2005: top = 999,999,999
+    # 2007–2009: top = 999,999,997
+    # 0 = no other debts
+
+    # Student Loans = student_loans [ER48945]
+    # 2011–2021: 1–9,999,997 = valid; 0 = none
+
+money_vars <- c("income_all", "income_tax_hs", "income_tax_others",
+  "transfer_hs", "transfer_others1", "transfer_others2", "wealth_nohouse", "wealth", "farm_bus", "checking", "debt",
+  "real_estate", "stocks", "vehicles", "other_assets",
+  "student_loans", "home_equity")
+
+# Join inflation, adjust, and rename
 sample <- sample %>%
-  mutate(
-    edu2 =
-      case_when(
-        edu <= 12 ~ 0,
-        edu <= 15 ~ 1,
-        (edu > 15 & edu < 99) ~ 2,
-        edu == 99 ~ NA_real_
-      ),
-    edu3 =
-      case_when(
-        edu <= 12 ~ 0,
-        (edu >= 13 & edu < 99) ~ 1,
-        edu == 99 ~ NA_real_
-      ),
-    hs =
-      case_when(
-        edu < 12 ~ 0,
-        (edu >= 12 & edu < 99) ~ 1,
-        edu == 99 ~ NA_real_
-      ),
-    ba =
-      case_when(
-        edu < 16 ~ 0,
-        (edu >= 16 & edu < 99) ~ 1,
-        edu == 99 ~ NA_real_
-      ),
-    ma =
-      case_when(
-        edu < 17 ~ 0,
-        (edu >= 17 & edu < 99) ~ 1,
-        edu == 99 ~ NA_real_
-      )
-  )
+  left_join(cpi, by = "year", relationship = "many-to-one") %>%
+  mutate(across(
+    all_of(money_vars),
+    ~ .x * inflation_value / 100,
+    .names = "infl_{.col}"
+  )) %>%
+  select(-all_of(money_vars), -inflation_value) %>%
+  rename_with(~ gsub("^infl_", "", .x), starts_with("infl_"))
 
 
-# Create person max education vars
-sample <- sample %>%
-  group_by(pid) %>%
-  mutate(
-    max_edu2 = efficient_max(edu2, na.rm = TRUE),
-    max_edu3 = efficient_max(edu3, na.rm = TRUE),
-    max_hs = efficient_max(hs, na.rm = TRUE),
-    max_ba = efficient_max(ba, na.rm = TRUE),
-    max_ma = efficient_max(ma, na.rm = TRUE)
-  ) %>%
-  ungroup() %>%
-  mutate(
-    max_edu2 =
-      case_when(
-        is.infinite(max_edu2) ~ NA_real_,
-        TRUE ~ max_edu2
-      ),
-    max_edu3 =
-      case_when(
-        is.infinite(max_edu3) ~ NA_real_,
-        TRUE ~ max_edu3
-      ),
-    max_hs =
-      case_when(
-        is.infinite(max_hs) ~ NA_real_,
-        TRUE ~ max_hs
-      ),
-    max_ba =
-      case_when(
-        is.infinite(max_ba) ~ NA_real_,
-        TRUE ~ max_ba
-      ),
-    max_ma =
-      case_when(
-        is.infinite(max_ma) ~ NA_real_,
-        TRUE ~ max_ma
-      )
-  ) %>%
-  select(-c(edu, edu2, edu3, hs, ba, ma)) %>%
-  rename(edu = max_edu3, edu2 = max_edu2, hs = max_hs, ba = max_ba, ma = max_ma)
-
-# Clean Gender ------------------------------------------------------------
-sample <- sample %>%
-  mutate(
-    male =
-      case_when(
-        male == 9 ~ NA_real_,
-        male == 2 ~ 0,
-        TRUE ~ male
-      )
-  )
-
-# Clean Income ------------------------------------------------------------
-  # Income top coded at 999,999; from 1972 1 = 1 or less;
-  # 1980 top coded at 999,999;
-  # 1981 - 1983 top coded at 9,999,999; 1984-1985 top coded 999,999;
-  # 1986-1993 top 9,999,999
-  # 1994-1995 started including negatives and 9,999,999 all of a
-  # sudden means latino sample (which we don't have)
-  # 1996-1997 drop latino thing (no more 9,999,999);
-  # 1999 - 2019 bring back top coding of 9,999,999
-sample <- sample %>% # Income only for heads and spouses
-  mutate(
-    parental_income =
-      case_when(
-        relation == 3 ~ income,
-        TRUE ~ NA_real_
-      ),
-    income =
-      case_when(
-        relation == 1 | relation == 2 ~ income,
-        TRUE ~ NA_real_
-      )
-  )
-
-# Average all household income observations
-sample <- sample %>%
-  group_by(pid) %>%
-  mutate(
-    income_all = efficient_mean(income, na.rm = TRUE)
-  ) %>%
-  ungroup()
-
+# CLEAN FAMILY CHARACTERISTICS --------------------------------------------------
+  
 # Clean homeownership -----------------------------------------------------
   # Homeownership: 1 = own; 5 = rents; 8 = neither;
   # from 1994 9 = DK/ NA/ refused, 0 = inappropriate
@@ -219,75 +191,6 @@ sample <- sample %>%
       )
   )
 
-sample <- sample %>% # Parental homeownership
-  mutate(
-    parental_own_home =
-      case_when(
-        relation == 3 ~ own_home,
-        TRUE ~ NA_real_
-      ),
-    own_home = # Only head and spouse actually own
-      case_when(
-        relation == 1 | relation == 2 ~ own_home,
-        is.na(own_home) ~ NA_real_,
-        TRUE ~ 0
-      )
-  )
-
-# Clean Number of Children (# Live Births)   ----------------------------
-  # Children: 98 NA/ DK 99 No birth history collected
-sample <- sample %>%
-  mutate(
-    children =
-      case_when(
-        children == 98 |
-          children == 99 ~ NA_real_,
-        TRUE ~ children
-      )
-  )
-
-# Clean First Child and Marriage ----------------------------------------
-  # First child: 1900-2019 actual year, 9999 = missing or incomplete
-
-sample <- sample %>%
-  mutate(
-    first_child = as.integer(first_child),
-    first_marriage = as.integer(first_marriage)
-  ) 
-
-sample <- sample %>%
-  mutate(
-    first_child =
-      case_when(
-        first_child == 9999 ~ NA_real_,
-        TRUE ~ first_child - birth
-      ),
-    teen_pregnant =
-      case_when(
-        is.na(first_child) ~ NA_real_,
-        first_child < 20 ~ 1,
-        TRUE ~ 0
-      )
-  )
-
-# First marriage: 1900-2019 actual year, 9998 = NA/ DK, 9999 = not collected
-sample <- sample %>%
-  mutate(
-    first_marriage =
-      case_when(
-        (first_marriage == 9998 |
-           first_marriage == 9999) ~ NA_real_,
-        TRUE ~ first_marriage
-      )
-  ) %>%
-  mutate(
-    first_marriage = first_marriage - birth,
-    married_before26 = case_when(
-      first_marriage < 26 ~ 1,
-      first_marriage > 25 ~ 0,
-      is.na(first_marriage) ~ NA_real_
-    )
-  )
 
 # Clean Marital Status --------------------------------------------
   # Marital status of head
@@ -323,7 +226,7 @@ sample <- sample %>%
       )
   )
 
-# Clean Race --------------------------------------------------------------
+# CLEAN FAMILY RACE -------------------------------------------------------------
   # Recode Race
   # 1 white 2 black 3 4 7 other 8 9 0 NA
 sample <- sample %>%
@@ -370,9 +273,7 @@ sample <- sample %>%
     max_race = if_else(max_race == -Inf, NA_real_, max_race)
   )
 
-# According to codebook mention order doesn't matter
-  # Black if black exists, then other then white -
-  # Sayer, Cohen, and Casper (2004)
+# According to codebook mention order doesn't matter. Black if black exists, then other then white -Sayer, Cohen, and Casper (2004)
 sample <- sample %>%
   group_by(pid) %>%
   mutate(
@@ -436,6 +337,144 @@ sample <- sample %>%
     -race_third,
     -race_fourth,
     -race_pid
+  )
+
+# CLEAN INDIVIDUAL DEMOGRAPHICS -------------------------------------------------
+sample <- sample %>%
+  mutate(
+    male =
+      case_when(
+        male == 9 ~ NA_real_,
+        male == 2 ~ 0,
+        TRUE ~ male
+      )
+  )
+
+# Clean Year of Death ----------------------------------------------------------
+  # When available, the exact year of death is recorded.
+  # When a range of years was reported, this variable contains
+  # a four digit code in which the first two digits represent the first
+  # possible year of death, and the last two digits represent the last
+  # possible year.
+sample <- sample %>%
+  mutate(
+    start_year = str_sub(as.character(yod), 1, 2),
+    end_year   = str_sub(as.character(yod), 3, 4),
+    dbl_start  = as.double(start_year),
+    dbl_end    = as.double(end_year),
+    ave_year   = round((dbl_start + dbl_end) / 2),
+    ave_char   = case_when(
+      ave_year < 10 ~ str_c("200", ave_year),
+      ave_year < 20 ~ str_c("20",  ave_year),
+      ave_year >= 20 ~ str_c("19", ave_year),
+      TRUE ~ NA_character_
+    ),
+    final_year = case_when(
+      yod == 9999 ~ NA_real_,
+      !dbl_start %in% c(19, 20) &
+        as.double(ave_char) > 1900 &
+        as.double(ave_char) < 2200 ~ as.double(ave_char),
+      TRUE ~ as.double(yod)
+    )
+  ) %>%
+  select(-c(start_year, end_year, dbl_start, dbl_end, ave_year, ave_char, yod)) %>%
+  rename(yod = final_year)
+
+# CLEAN INDIVIDUAL EDUCATION ----------------------------------------------------
+  # After cleaning:
+    # edu_cat1: Education categories: 0 = High school, 1 = Post-high school education
+    # edu_cat2: Education categories: 0 = High school, 1 = Some post-high school, 2 = Bachelor's or higher.
+    # hs, ba, ma: Binary variables for high school, bachelor's, and master's degrees
+
+sample <- sample %>%
+  mutate(
+    edu = if_else(edu %in% c(97, 98, 99), NA_real_, as.double(edu))
+  )
+
+  sample <- sample %>%
+  mutate(
+    edu2 =
+      case_when(
+        edu <= 12 ~ 0,
+        edu <= 15 ~ 1,
+        (edu > 15 & edu < 99) ~ 2,
+        edu == 99 ~ NA_real_
+      ),
+    edu3 =
+      case_when(
+        edu <= 12 ~ 0,
+        (edu >= 13 & edu < 99) ~ 1,
+        edu == 99 ~ NA_real_
+      ),
+    hs =
+      case_when(
+        edu < 12 ~ 0,
+        (edu >= 12 & edu < 99) ~ 1,
+        edu == 99 ~ NA_real_
+      ),
+    ba =
+      case_when(
+        edu < 16 ~ 0,
+        (edu >= 16 & edu < 99) ~ 1,
+        edu == 99 ~ NA_real_
+      ),
+    ma =
+      case_when(
+        edu < 17 ~ 0,
+        (edu >= 17 & edu < 99) ~ 1,
+        edu == 99 ~ NA_real_
+      )
+  )
+
+# Create person max education vars
+sample <- sample %>%
+  group_by(pid) %>%
+  mutate(
+    max_edu2 = efficient_max(edu2, na.rm = TRUE),
+    max_edu3 = efficient_max(edu3, na.rm = TRUE),
+    max_hs = efficient_max(hs, na.rm = TRUE),
+    max_ba = efficient_max(ba, na.rm = TRUE),
+    max_ma = efficient_max(ma, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    max_edu2 =
+      case_when(
+        is.infinite(max_edu2) ~ NA_real_,
+        TRUE ~ max_edu2
+      ),
+    max_edu3 =
+      case_when(
+        is.infinite(max_edu3) ~ NA_real_,
+        TRUE ~ max_edu3
+      ),
+    max_hs =
+      case_when(
+        is.infinite(max_hs) ~ NA_real_,
+        TRUE ~ max_hs
+      ),
+    max_ba =
+      case_when(
+        is.infinite(max_ba) ~ NA_real_,
+        TRUE ~ max_ba
+      ),
+    max_ma =
+      case_when(
+        is.infinite(max_ma) ~ NA_real_,
+        TRUE ~ max_ma
+      )
+  ) %>%
+  select(-c(edu, edu2, edu3, hs, ba, ma)) %>%
+  rename(edu_cat1 = max_edu3, edu_cat2 = max_edu2, hs = max_hs, ba = max_ba, ma = max_ma)
+
+
+# CLEAN INDIVIDUAL FAMILY CHARACTERISTICS ---------------------------------------
+
+# Clean Number of Children (# Live Births)   ----------------------------
+  # Children: 98 NA/ DK 99 No birth history collected
+sample <- sample %>%
+  mutate(
+    children = if_else(children %in% c(98, 99), NA_real_, as.double(children))
   )
 
 saveRDS(sample, here("2_clean_panel", "output", "clean.rds"))

@@ -1,8 +1,8 @@
 The purpose of this file is to update when/if raw data is updated (ie to include new variables, etc)
 
 PSID DATA
-- PSID data downloaded on 20250418
-- Job identifier in "PSID 346415	-	20250418data"
+- PSID data downloaded on 20250504
+- Job identifier in "PSID 347157	-	20250504data"
 
 FIMS DATA
 - FIMs data downloaded on 20250415
