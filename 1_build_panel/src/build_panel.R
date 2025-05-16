@@ -1,5 +1,6 @@
 # INPUTS: 0_data/psid.xlsx, 0_data/fims/, 0_data/fam_ind/
-# OUTPUTS: Merged data frame with individual and family data, including parent and grandparent IDs from FIMs
+# OUTPUTS: Data frames for family data and indiviudal data, including parent and grandparent IDs from FIMs
+
 
 # Load required libraries -------------------------------------------------
 if (!require("pacman")) install.packages("pacman", repos = "http://cran.us.r-project.org")
@@ -13,7 +14,8 @@ pacman::p_load(
   openxlsx,
   psidR,
   here,
-  readxl
+  readxl,
+  data.table
 )
 
 here::i_am("1_build_panel/src/build_panel.R")
@@ -33,6 +35,7 @@ cpi <- read.xlsx(here("0_data", "cpi", "cpi.xlsx")) %>%
 
 # Load PSID Data ----------------------------------------------------------
   # This data is downloaded from the PSID website using the cross-year selection tool
+file.remove(list.files(here("1_build_panel", "output"), pattern = "\\.rds$", full.names = TRUE)) # Output directory needs to be empty
 input_dir <- here("0_data", "fam_ind")
 output_dir <- here("1_build_panel", "output")
 
@@ -44,8 +47,7 @@ easyPSID::convert_to_rds(
 psid_file <- list.files(output_dir, pattern = "\\.rds$", full.names = TRUE)
 psid_data <- readRDS(psid_file)
 
-
-  # This data is downloaded from the PSID website using the cross-year selection tool
+# DEFINE FUNCTIONS ---------------------------------------------------------------------------
 # Define Variables to Extract Lists -----------------------------------------
 extract_psid_vartables <- function(var_object) {
   tmp <- getNamesPSID(var_object[["var"]], cwf, years = NULL)
@@ -121,35 +123,36 @@ fill_columns_with_latest_value <- function(df) {
   return(filled_df)
 }
 
+# EXTRACT VARIABLES ---------------------------------------------------------------------------
 # Complete List of Variables ---------------------------------------------------
 vars <- list(
   # IDENTIFIERS -------------------------------------------------------------
   list(name = "ind_sample", varname = "sample", var = "ER32006"), # Sample
   list(name = "ind_relation", varname = "relation", var = "ER30003"), # Individual relation to head [all years]
-  list(name = "ind_relation_b", varname = "relation_construct_2", var = "ER30005"), # For constructing head_id and spouse_id
+  list(name = "ind_relation_b", varname = "married_pair", var = "ER30005"), # Married pairs indicator for constructing head_id and spouse_id
   list(name = "fam_interview", varname = "interview", var = "V99"), # 1968 Interview Number [all years]
   # list(name = "fam_relation", varname = "relation_construct_3", var = "V180"), # Family interview respondent's relation to head [all years]
 
   # INCOME ------------------------------------------------------------------
-  list(name = "fam_income1", varname = "income_all", var = "V81"), # Total family income [all years]
-  list(name = "fam_income2", varname = "income_tax_hs", var = "V76"), # Total taxable income, head and spouse [all years]
-  list(name = "fam_income3", varname = "income_tax_others", var = "V79"), # Total taxable income, others in FU [all years]
-  list(name = "fam_transfer1", varname = "transfer_hs", var = "V1220"), # Amount of total transfers, private + public for household heads and spouses [1970-2021]
-  list(name = "fam_transfer3", varname = "transfer_others1", var = "V527"), # Amount of total transfers, private + public for others in FU, pro-rated [1969-1993]
-  list(name = "fam_transfer4", varname = "transfer_others2", var = "V11576"), # Amount of total transfers, private + public for others in FU, not pro-rated [1985-2021]
+  list(name = "fam_income1", varname = "inc_all", var = "V81"), # Total family income [all years]
+  list(name = "fam_income2", varname = "inc_tax_hs", var = "V76"), # Total taxable income, head and spouse [all years]
+  list(name = "fam_income3", varname = "inc_tax_o", var = "V79"), # Total taxable income, others in FU [all years]
+  list(name = "fam_transfer1", varname = "inc_trans_hs", var = "V1220"), # Amount of total transfers, private + public for household heads and spouses [1970-2021]
+  list(name = "fam_transfer3", varname = "inc_trans_o1", var = "V527"), # Amount of total transfers, private + public for others in FU, pro-rated [1969-1993]
+  list(name = "fam_transfer4", varname = "inc_trans_o2", var = "V11576"), # Amount of total transfers, private + public for others in FU, not pro-rated [1985-2021]
   
   # WEALTH ------------------------------------------------------------------
   list(name = "fam_wealth_nohouse", varname = "wealth_nohouse", var = "S116"), # Family imputed wealth excluding house equity [all wealth supplement years]
   list(name = "fam_wealth", varname = "wealth", var = "S117"), # Family imputed wealth including house equity [all wealth supplement years]
-  list(name = "fam_farmbus", varname = "farm_bus", var = "S103"), # Imputed Value of farm and business assets [all wealth supplement years]
-  list(name = "fam_checking", varname = "checking", var = "S105"), # Imputed value of checking and savings [1984-2017]
-  list(name = "fam_debt", varname = "debt", var = "S107"), # Imputed Debt value [all wealth supplement years]
-  list(name = "fam_real_estate", varname = "real_estate", var = "S109"), # Imputed real estate value, excluding home [1984-2011]
-  list(name = "fam_stocks", varname = "stocks", var = "S111"), # Imputed stock values [all wealth supplement years]
-  list(name = "fam_vehicle", varname = "vehicles", var = "S113"), # Vehicle value [all wealth supplement years]
-  list(name = "fam_other_assets", varname = "other_assets", var = "S115"), # Bonds, insurance, and other collectible values [all wealth supplement years]
+  list(name = "fam_farmbus", varname = "wealth_farmbus", var = "S103"), # Imputed Value of farm and business assets [all wealth supplement years]
+  list(name = "fam_checking", varname = "wealth_checking", var = "S105"), # Imputed value of checking and savings [1984-2017]
+  list(name = "fam_debt", varname = "wealth_debt", var = "S107"), # Imputed Debt value [all wealth supplement years]
+  list(name = "fam_real_estate", varname = "wealth_re", var = "S109"), # Imputed real estate value, excluding home [1984-2011]
+  list(name = "fam_stocks", varname = "wealth_stocks", var = "S111"), # Imputed stock values [all wealth supplement years]
+  list(name = "fam_vehicle", varname = "wealth_vehicles", var = "S113"), # Vehicle value [all wealth supplement years]
+  list(name = "fam_other_assets", varname = "wealth_other", var = "S115"), # Bonds, insurance, and other collectible values [all wealth supplement years]
   list(name = "fam_student_loans", varname = "student_loans", var = "ER48945"), # Student loan value [2011 - 2021]
-  list(name = "fam_home_equity", varname = "home_equity", var = "S120"), # Home equity value [all wealth supplement years]
+  list(name = "fam_home_equity", varname = "wealth_home", var = "S120"), # Home equity value [all wealth supplement years]
 
   
   # FAMILY CHARACTERISTICS --------------------------------------------------
@@ -158,7 +161,7 @@ vars <- list(
   list(name = "fam_num", varname = "fam_id", var = "V3"), # Family Number [all years]
   list(name = "fam_marital", varname = "marital", var = "V239"), # Marital Status [all years]
   list(name = "fam_house", varname = "house_status", var = "V103"), # Housing Status [all years]
-  list(name = "fam_homevalue", varname = "home_value", var = "V5"), # Home Value [all years]
+  # list(name = "fam_homevalue", varname = "home_value", var = "V5"), # Home Value [all years]
   list(name = "fam_state", varname = "state", var = "V93"), # State of Residence [all years]
   
   # FAMILY RACE -------------------------------------------------------------
@@ -183,8 +186,8 @@ vars <- list(
   list(name = "ind_children", varname = "children", var = "ER32022"), # Number of children [all years]
   
   # INDIVIDUAL WEIGHTS ------------------------------------------------------
-  list(name = "ind_cross_weight", varname = "ind_cross_weight", var = "ER12224"), # Cross-sectional weight [1997-2019]
-  list(name = "ind_weight", varname = "ind_weight", var = "ER12084"), # Longitudinal Combined Core [1997-2021]
+  # list(name = "ind_cross_weight", varname = "ind_cross_weight", var = "ER12224"), # Cross-sectional weight [1997-2019]
+  # list(name = "ind_weight", varname = "ind_weight", var = "ER12084"), # Longitudinal Combined Core [1997-2021]
   list(name = "ind_cross_weight2", varname = "ind_cross_weight2", var = "ER33438"), # Individual Cross-Sectional Weight [1997-2021]
   list(name = "ind_weight2", varname = "ind_weight2", var = "ER33430"), # Individual Weight [1997-2021]
   list(name = "ind_stratum", varname = "stratum", var = "ER31996"), # Sampling Strata [all years]
@@ -213,6 +216,7 @@ fams <-
   compact() %>%
   reduce(inner_join, by = "year")
 
+# BUILD PANEL ---------------------------------------------------------------------------
 # Define Function to Build Individual and Family Panel ---------------------------
 extract_psid_data_by_inds <- function(psid_data, mapping, id_vars = c("ER30000", "ER30001", "ER30002")) {
   year_list <- unique(mapping$year)
@@ -262,30 +266,6 @@ family_data <- family_data %>%
   mutate(pid = (id1968 * 1000) + sequence) %>%
   select(year, pid, everything())
 
-# Merge Family and Individual Data by PID and Year
-merged <- individual_data %>%
-  left_join(family_data, by = c("pid", "year"))
-
-merged <- merged %>%
-  mutate(family_interview = if_else(!is.na(release.y), 1L, 0L))
-
-expected_missing <- 1496629
-
-actual_missing <- merged %>%
-  filter(is.na(release.y)) %>%
-  nrow()
-
-if (actual_missing != expected_missing) {
-  stop(paste0("Unexpected number of missing family interviews: expected ", 
-              expected_missing, ", got ", actual_missing))
-}
-
-merged <- merged %>%
-  select(-ends_with(".y"))
-
-names(merged) <- gsub("\\.x$", "", names(merged))
-
-
 # Merge Family Identification Data ------------------------------------------
 # Load FIMS data 
 parents <- openxlsx::read.xlsx(here("0_data", "fims", "20250415_parents.xlsx"))
@@ -332,12 +312,12 @@ g_fims_wide <- g_fims %>%
     values_from = grandparent_pid   
   )
 
-merged <- merged %>%
+individual_data <- individual_data %>%
   left_join(p_fims_wide, by = "pid") %>%
   left_join(g_fims_wide, by = "pid")
 
 # Transform FIMs IDs to Character Type
-merged <- merged %>%
+individual_data <- individual_data %>%
   mutate(
     across(
       starts_with("parent"),
@@ -349,12 +329,21 @@ merged <- merged %>%
     )
   )
 
-# Clean Up Temporary Files --------------------------------------------------
-rm(cwf, fams, inds, psid_data, vars, vartable_list, family_data, individual_data)
-rm(p_fims, g_fims, parents, grandparents)
-file.remove(list.files(here("1_build_panel", "output"), pattern = "\\.rds$", full.names = TRUE))
+# Merge Family and Individual Data by PID and Year
+build <- family_data %>%
+  left_join(individual_data, by = c("pid", "year"))
 
-# Save Merged Data ----------------------------------------------------------
-saveRDS(merged, here("1_build_panel", "output", "merged.rds"))
+build <- build %>%
+  select(-ends_with(".y"))
+
+names(build) <- gsub("\\.x$", "", names(build))
+
+# SAVE ---------------------------------------------------------------------------
+file.remove(list.files(here("1_build_panel", "output"), pattern = "\\.rds$", full.names = TRUE))
+saveRDS(build, here("1_build_panel", "output", "build.rds"))
+
+# Clean Up Temporary Files --------------------------------------------------
+rm(cwf, fams, inds, psid_data, vars, vartable_list)
+rm(p_fims, g_fims, parents, grandparents, g_fims_wide, p_fims_wide, family_data, individual_data)
 
 
