@@ -351,7 +351,13 @@ topcodes <- topcode_rules %>%
 topcode_wide <- topcodes %>%
   pivot_wider(names_from = var, values_from = topcode, names_prefix = "topcode_")
 
-# Define variables related to money
+topcode_max <- topcodes %>%
+  group_by(var) %>%
+  summarise(topmax = max(topcode, na.rm = TRUE), .groups = "drop")
+
+build <- build %>%
+  left_join(topcode_wide, by = "year")
+
 money_vars <- c(
   "inc_all", "inc_tax_hs", "inc_tax_o",
   "inc_trans_hs", "inc_trans_o1", "inc_trans_o2",
@@ -360,18 +366,30 @@ money_vars <- c(
   "wealth_home", "student_loans"
 )
 
-# Join topcodes and add indicator for top-coded values
-build <- build %>%
-  left_join(topcode_wide, by = "year")
-
 for (var in money_vars) {
-  topcode_col <- paste0("topcode_", var)
+  topcode_col <- paste0("topcode_", var)       # this is the threshold for the year
+  indicator_col <- paste0("ind_top_", var)    # new binary indicator column
+
+  # Get max topcode value across years for this variable
+  topmax_val <- topcode_max %>%
+    filter(var == !!var) %>%
+    pull(topmax)
+
+  # Replace topcoded values and create a flag
   build <- build %>%
     mutate(
-      # overwrite topcode_inc_all, etc., with 1/0 flags
-      !!topcode_col := as.integer(.data[[var]] >= (.data[[topcode_col]] - 1))
+      !!indicator_col := as.integer(.data[[var]] >= (.data[[topcode_col]] - 1)),
+      !!var := if_else(
+        .data[[indicator_col]] == 1,
+        topmax_val,
+        .data[[var]]
+      )
     )
 }
+
+build <- build %>%
+  select(-starts_with("topcode_"))
+
 
 # Join inflation, adjust, and rename
 build <- build %>%
@@ -557,4 +575,4 @@ file.remove(list.files(here("2_clean_panel", "output"), pattern = "\\.rds$", ful
 saveRDS(build, here("2_clean_panel", "output", "clean.rds"))
 
 # Clean Up Temporary Files --------------------------------------------------
-rm(cpi, pid_lookup, sample_fast, topcode_wide, topcode_rules, topcodes)
+rm(cpi, pid_lookup, sample_fast, topcode_wide, topcode_rules, topcodes, topcode_max)

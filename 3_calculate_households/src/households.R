@@ -98,7 +98,7 @@ households <- households %>%
     ends_with("_spouse"),
 
     # Topcode variables
-    starts_with("topcode_")
+    starts_with("ind_top_")
   )
 
 # SAVE ---------------------------------------------------------------------------
