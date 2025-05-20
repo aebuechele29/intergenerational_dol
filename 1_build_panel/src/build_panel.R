@@ -102,27 +102,6 @@ create_sublist <- function(var_object, type_str) {
   }
 }
 
-# Define Function to Apply Vars with Only Most Recent Wave to All ---------
-fill_columns_with_latest_value <- function(df) {
-  # Identify columns where only the bottom row has a value
-  bottom_row <- df %>% tail(1)
-  cols_to_fill <- df %>%
-    summarise(across(everything(), ~ sum(!is.na(.)))) %>%
-    pivot_longer(everything(), names_to = "column", values_to = "non_na_count") %>%
-    filter(non_na_count == 1) %>%
-    pull(column)
-  
-  filled_df <- df %>%
-    mutate(
-      across(
-        all_of(cols_to_fill),
-        ~ ifelse(is.na(.), bottom_row[[cur_column()]], .)
-      )
-    )
-  
-  return(filled_df)
-}
-
 # EXTRACT VARIABLES ---------------------------------------------------------------------------
 # Complete List of Variables ---------------------------------------------------
 vars <- list(
@@ -201,24 +180,20 @@ vartable_list <-
   vars %>%
   map(extract_psid_vartables) %>%
   map(remove_y) %>%
-  map(rename_variable)
+  map(rename_variable) 
 
-inds <-
-  vartable_list %>%
-  map(create_sublist, "ind") %>%
-  compact() %>%
-  reduce(inner_join, by = "year") %>%
-  fill_columns_with_latest_value()
-
-fams <-
-  vartable_list %>%
-  map(create_sublist, "fam") %>%
-  compact() %>%
-  reduce(inner_join, by = "year")
+all_vars <- vartable_list %>%
+  map(~ list(
+    ind = create_sublist(.x, "ind"),
+    fam = create_sublist(.x, "fam")
+  )) %>%
+  map(compact) %>%            
+  flatten() %>%               
+  reduce(inner_join, by = "year") 
 
 # BUILD PANEL ---------------------------------------------------------------------------
 # Define Function to Build Individual and Family Panel ---------------------------
-extract_psid_data_by_inds <- function(psid_data, mapping, id_vars = c("ER30000", "ER30001", "ER30002")) {
+extract_psid_data <- function(psid_data, mapping, id_vars = c("ER30000", "ER30001", "ER30002")) {
   year_list <- unique(mapping$year)
   result_list <- purrr::map(year_list, function(yr) {
     map_row <- mapping %>% filter(year == yr)
@@ -240,17 +215,11 @@ extract_psid_data_by_inds <- function(psid_data, mapping, id_vars = c("ER30000",
   bind_rows(compact(result_list))
 }
 
-individual_data <- extract_psid_data_by_inds(psid_data, inds)
-family_data <- extract_psid_data_by_inds(psid_data, fams)
+psid_data <- extract_psid_data(psid_data, all_vars)
+
 
 # Clean Individual_data and Family_data -------------------------------------------
-individual_data <- individual_data %>%
-  rename(
-    release = ER30000,
-    id1968 = ER30001,
-    sequence = ER30002
-  )
-family_data <- family_data %>%
+psid_data <- psid_data %>%
   rename(
     release = ER30000,
     id1968 = ER30001,
@@ -258,11 +227,7 @@ family_data <- family_data %>%
   )
 
 # Add Unique PID to Individual and Family Data -----------------------------------
-individual_data <- individual_data %>%
-  mutate(pid = (id1968 * 1000) + sequence) %>%
-  select(year, pid, everything())
-
-family_data <- family_data %>%
+psid_data <- psid_data %>%
   mutate(pid = (id1968 * 1000) + sequence) %>%
   select(year, pid, everything())
 
@@ -312,12 +277,12 @@ g_fims_wide <- g_fims %>%
     values_from = grandparent_pid   
   )
 
-individual_data <- individual_data %>%
+psid_data <- psid_data %>%
   left_join(p_fims_wide, by = "pid") %>%
   left_join(g_fims_wide, by = "pid")
 
 # Transform FIMs IDs to Character Type
-individual_data <- individual_data %>%
+psid_data <- psid_data %>%
   mutate(
     across(
       starts_with("parent"),
@@ -329,21 +294,12 @@ individual_data <- individual_data %>%
     )
   )
 
-# Merge Family and Individual Data by PID and Year
-build <- family_data %>%
-  left_join(individual_data, by = c("pid", "year"))
-
-build <- build %>%
-  select(-ends_with(".y"))
-
-names(build) <- gsub("\\.x$", "", names(build))
-
 # SAVE ---------------------------------------------------------------------------
 file.remove(list.files(here("1_build_panel", "output"), pattern = "\\.rds$", full.names = TRUE))
-saveRDS(build, here("1_build_panel", "output", "build.rds"))
+saveRDS(psid_data, here("1_build_panel", "output", "build.rds"))
 
 # Clean Up Temporary Files --------------------------------------------------
-rm(cwf, fams, inds, psid_data, vars, vartable_list)
-rm(p_fims, g_fims, parents, grandparents, g_fims_wide, p_fims_wide, family_data, individual_data)
+rm(cwf, all_vars, vars, vartable_list)
+rm(p_fims, g_fims, parents, grandparents, g_fims_wide, p_fims_wide)
 
 

@@ -45,12 +45,6 @@ build <- build %>%
       ) 
     )
 
-build <- build %>%
-  filter(
-    !is.na(relation),
-    sample != 0,
-    sequence <= 20,
-  )
 
 # CLEAN INDIVIDUAL DEMOGRAPHICS -------------------------------------------------
 # CREATE BIRTH COHORTS --------------------------------------------------------
@@ -60,19 +54,7 @@ build <- build %>%
   mutate(
     age = if_else(age > 998, NA_real_, age),
     yob = round(year - age)
-  ) %>%
-  filter(
-    !is.na(age)
-  ) %>%
-  select(-c(age))
-
-# Choose person median birth year
-build <- build %>%
-  group_by(pid) %>%
-  mutate(
-    yob = as.integer((median(yob, na.rm = TRUE)))
-  ) %>%
-  ungroup()
+  ) 
 
 # Create birth cohorts from 1890 to 1990
 build <- build %>%
@@ -230,7 +212,6 @@ build <- build %>%
     children = if_else(children %in% c(98, 99), NA_real_, as.double(children))
   )
 
-
 # SELECT WEIGHTS-------  ---------------------------------------------------------
 build <- build %>%
   arrange(pid, year) %>%
@@ -341,6 +322,7 @@ topcode_rules <- tribble(
   
 )
 
+# Expand topcode rules to long format (unchanged)
 topcodes <- topcode_rules %>%
   rowwise() %>%
   mutate(year = list(seq(year_start, year_end))) %>%
@@ -348,15 +330,11 @@ topcodes <- topcode_rules %>%
   select(var, year, topcode) %>%
   ungroup()
 
-topcode_wide <- topcodes %>%
+topcodes_wide <- topcodes %>%
   pivot_wider(names_from = var, values_from = topcode, names_prefix = "topcode_")
 
-topcode_max <- topcodes %>%
-  group_by(var) %>%
-  summarise(topmax = max(topcode, na.rm = TRUE), .groups = "drop")
-
 build <- build %>%
-  left_join(topcode_wide, by = "year")
+  left_join(topcodes_wide, by = "year")
 
 money_vars <- c(
   "inc_all", "inc_tax_hs", "inc_tax_o",
@@ -367,28 +345,17 @@ money_vars <- c(
 )
 
 for (var in money_vars) {
-  topcode_col <- paste0("topcode_", var)       # this is the threshold for the year
-  indicator_col <- paste0("ind_top_", var)    # new binary indicator column
+  topcode_col <- paste0("topcode_", var)
+  indicator_col <- paste0("ind_top_", var)
 
-  # Get max topcode value across years for this variable
-  topmax_val <- topcode_max %>%
-    filter(var == !!var) %>%
-    pull(topmax)
-
-  # Replace topcoded values and create a flag
-  build <- build %>%
-    mutate(
-      !!indicator_col := as.integer(.data[[var]] >= (.data[[topcode_col]] - 1)),
-      !!var := if_else(
-        .data[[indicator_col]] == 1,
-        topmax_val,
-        .data[[var]]
-      )
-    )
+  build[[indicator_col]] <- as.integer(!is.na(build[[topcode_col]]) & 
+                                        build[[var]] == (build[[topcode_col]] - 1)) # conservative approach
 }
 
 build <- build %>%
   select(-starts_with("topcode_"))
+
+rm(topcode_rules, topcodes, topcodes_wide, topcodes)
 
 
 # Join inflation, adjust, and rename
@@ -570,9 +537,12 @@ build <- build %>%
     -race_pid
   )
 
+build <- build %>%
+  select(-married)
+
 # SAVE CLEAN DATA -------------------------------------------------------------
 file.remove(list.files(here("2_clean_panel", "output"), pattern = "\\.rds$", full.names = TRUE))
 saveRDS(build, here("2_clean_panel", "output", "clean.rds"))
 
 # Clean Up Temporary Files --------------------------------------------------
-rm(cpi, pid_lookup, sample_fast, topcode_wide, topcode_rules, topcodes, topcode_max)
+rm(cpi, pid_lookup, sample_fast)
