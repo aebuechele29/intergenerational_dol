@@ -1,5 +1,5 @@
 # INPUTS: 3_calculate_households/output/households.rds
-# OUTPUTS: 
+# OUTPUTS: 4_calculate_clans/output/clans.rds
 
 households <- readRDS(here("3_calculate_households", "output", "households.rds"))
 
@@ -14,11 +14,7 @@ households <- households %>%
   group_by(id1968, year) %>%
   arrange(fam_id) %>%
   mutate(hh_number = row_number()) %>%
-  ungroup() %>%
-  # Deselecting variables that need to be taken care of in the household file, not clan
-  select(-c(release, stratum, cluster, sequence_head, sequence_spouse, 
-    last_weight_head, last_weight_spouse, last_weight_year_head, 
-    last_weight_year_spouse, race_year_head, race_year_spouse))
+  ungroup() 
 
 # Removing topcodes for now 050517
 households <- households %>%
@@ -44,11 +40,10 @@ if (nrow(clans) != nrow(distinct(clans, id1968, year))) {
   stop("Duplicate (id1968, year) combinations found in clans. Check merge.")
 }
 
-# numclan: Number of households in each clan
 
-
-
-
+# SAVE ---------------------------------------------------------------------------
+file.remove(list.files(here("4_calculate_clans", "output"), pattern = "\\.rds$", full.names = TRUE))
+saveRDS(clans, here("4_calculate_clans", "output", "clans.rds"))
 
 
 
