@@ -40,7 +40,7 @@ build <- build %>%
           (relation > 94 & relation < 99) |
           (relation == 8 & (year > 1968 & year < 1983)) ~ 4,
         relation == 0 | is.na(relation) |
-          (relation == 9 & year == 1968) ~ NA_real_,
+          (relation == 9 & year == 1968) ~ 0,
         TRUE ~ relation
       ) 
     )
@@ -355,7 +355,7 @@ for (var in money_vars) {
 build <- build %>%
   select(-starts_with("topcode_"))
 
-rm(topcode_rules, topcodes, topcodes_wide, topcodes)
+rm(topcode_rules, topcodes, topcodes_wide)
 
 
 # Join inflation, adjust, and rename
@@ -388,26 +388,6 @@ build <- build %>%
         TRUE ~ own_home
       )
   )
-
-# Clean Marital Status --------------------------------------------
-  # Marital status of head
-  # 1 married (from 1977 also permanently cohabiting; 1982 switched from spouse
-  # may not be in FU to spouse must be in FU);
-  # 2 single; 3 widowed; 4 divorced;
-  # 5 separated (1982 also got legally married but spouse not in FU);
-  # 9 NA (1968, not 1969-1981, from 1982 also DK)
-  # 1977 started other variable differentiating cohabiting vs legally married
-
-build <- build %>%
-  mutate(
-    married = case_when(
-      relation == 1 & marital > 1 & marital < 9 ~ 0,
-      relation == 1 & marital == 9 ~ NA_real_,
-      relation == 1 ~ 1,
-      TRUE ~ NA_real_
-    )
-  ) %>%
-  select(-marital)
 
 # Clean State -------------------------------------------------------------
   # 1-51 PSID state code
@@ -536,9 +516,6 @@ build <- build %>%
     -race_fourth,
     -race_pid
   )
-
-build <- build %>%
-  select(-married)
 
 # SAVE CLEAN DATA -------------------------------------------------------------
 file.remove(list.files(here("2_clean_panel", "output"), pattern = "\\.rds$", full.names = TRUE))

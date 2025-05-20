@@ -138,7 +138,6 @@ vars <- list(
   list(name = "fam_sex", varname = "head_sex", var = "V119"), # Sex of Household Head [all years]
   list(name = "fam_numfu", varname = "numfu", var = "V115"), # Number of People in Family Unit [all years]
   list(name = "fam_num", varname = "fam_id", var = "V3"), # Family Number [all years]
-  list(name = "fam_marital", varname = "marital", var = "V239"), # Marital Status [all years]
   list(name = "fam_house", varname = "house_status", var = "V103"), # Housing Status [all years]
   # list(name = "fam_homevalue", varname = "home_value", var = "V5"), # Home Value [all years]
   list(name = "fam_state", varname = "state", var = "V93"), # State of Residence [all years]
