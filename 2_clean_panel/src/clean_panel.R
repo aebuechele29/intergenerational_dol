@@ -160,48 +160,8 @@ build <- build %>%
         (edu >= 17 & edu < 99) ~ 1,
         edu == 99 ~ NA_real_
       )
-  )
-
-# Create person max education vars
-build <- build %>%
-  group_by(pid) %>%
-  mutate(
-    max_edu2 = efficient_max(edu2, na.rm = TRUE),
-    max_edu3 = efficient_max(edu3, na.rm = TRUE),
-    max_hs = efficient_max(hs, na.rm = TRUE),
-    max_ba = efficient_max(ba, na.rm = TRUE),
-    max_ma = efficient_max(ma, na.rm = TRUE)
   ) %>%
-  ungroup() %>%
-  mutate(
-    max_edu2 =
-      case_when(
-        is.infinite(max_edu2) ~ NA_real_,
-        TRUE ~ max_edu2
-      ),
-    max_edu3 =
-      case_when(
-        is.infinite(max_edu3) ~ NA_real_,
-        TRUE ~ max_edu3
-      ),
-    max_hs =
-      case_when(
-        is.infinite(max_hs) ~ NA_real_,
-        TRUE ~ max_hs
-      ),
-    max_ba =
-      case_when(
-        is.infinite(max_ba) ~ NA_real_,
-        TRUE ~ max_ba
-      ),
-    max_ma =
-      case_when(
-        is.infinite(max_ma) ~ NA_real_,
-        TRUE ~ max_ma
-      )
-  ) %>%
-  select(-c(edu, edu2, edu3, hs, ba, ma)) %>%
-  rename(edu_cat1 = max_edu3, edu_cat2 = max_edu2, hs = max_hs, ba = max_ba, ma = max_ma)
+  rename(edu_cat1 = edu2, edu_cat2 = edu3)
 
 
 # CLEAN INDIVIDUAL FAMILY CHARACTERISTICS ---------------------------------------
