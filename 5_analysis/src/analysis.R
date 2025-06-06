@@ -28,12 +28,12 @@ analysis <- analysis[complete.cases(analysis[, c("year", "own_home", "edu_cat_sp
 datasummary(
   year + num_fam + child_under5 + spouse_working + spouse_earnings + spouse_housework + traditional ~ Mean + SD + Min + Max + N, data = analysis, 
   title = "Table 1A. Descriptive Statistics", 
-  output = "/Users/amanda/Desktop/categorical_final/5_analysis/output/Table1A_num.docx")
+  output = here("5_analysis", "output", "Table1A_num.docx"))
 
   datasummary(
   own_home + edu_cat_spouse ~ N + Percent(), 
   data = analysis, title = "Table 1B. Descriptive Statistics", 
-  output = "/Users/amanda/Desktop/categorical_final/5_analysis/output/Table1B_categ.docx")
+  output = here("5_analysis", "output", "Table1B_categ.docx"))
 
 # FIGURE 1 - SPECIFY LOGISTIC REGRESSIONS FOR FULL SAMPLE ------------------------
 logit_working <- glm(spouse_working ~ year + num_fam + child_under5 + own_home + edu_cat_spouse,
@@ -76,7 +76,7 @@ modelsummary(
   title = "Logistic regression for components of the division of household labor",
   coef_map = var_names,
   notes = "Survey years from 1976 to 2021. Reference category for Home Owner is Renters, for Education is High School or Less",
-  output = "/Users/amanda/Desktop/categorical_final/5_analysis/output/Figure1.docx"
+  output = here("5_analysis", "output", "Figure1.docx")
 )
 
 
@@ -108,7 +108,12 @@ plot1 <- ggplot(preds1, aes(x = year, y = estimate, color = edu_cat_spouse)) +
   ) +
   theme_minimal(base_size = 14)
 
-ggsave("/Users/amanda/Desktop/categorical_final/5_analysis/output/Figure2_traditional_plot.pdf", plot = plot1, width = 8, height = 5)
+ggsave(
+  filename = here("5_analysis", "output", "Figure2_traditional.pdf"),
+  plot = plot1,
+  width = 8,
+  height = 5
+)
 
 
 preds2 <- avg_predictions(
@@ -138,7 +143,12 @@ plot2 <- ggplot(preds2, aes(x = year, y = estimate, color = edu_cat_spouse)) +
   ) +
   theme_minimal(base_size = 14)
 
-ggsave("/Users/amanda/Desktop/categorical_final/5_analysis/output/Figure2_working_plot.pdf", plot = plot2, width = 8, height = 5)
+ggsave(
+  filename = here("5_analysis", "output", "Figure2_working.pdf"),
+  plot = plot1,
+  width = 8,
+  height = 5
+)
 
 
 preds3 <- avg_predictions(
@@ -168,7 +178,12 @@ plot3 <- ggplot(preds3, aes(x = year, y = estimate, color = edu_cat_spouse)) +
   ) +
   theme_minimal(base_size = 14)
 
-ggsave("/Users/amanda/Desktop/categorical_final/5_analysis/output/Figure2_earnings_plot.pdf", plot = plot3, width = 8, height = 5)
+ggsave(
+  filename = here("5_analysis", "output", "Figure2_earnings.pdf"),
+  plot = plot1,
+  width = 8,
+  height = 5
+)
 
 
 preds4 <- avg_predictions(
@@ -198,7 +213,12 @@ plot4 <- ggplot(preds4, aes(x = year, y = estimate, color = edu_cat_spouse)) +
   ) +
   theme_minimal(base_size = 14)
 
-ggsave("/Users/amanda/Desktop/categorical_final/5_analysis/output/Figure2_housework_plot.pdf", plot = plot4, width = 8, height = 5)
+ggsave(
+  filename = here("5_analysis", "output", "Figure2_housework.pdf"),
+  plot = plot1,
+  width = 8,
+  height = 5
+)
 
 
 # TABLE 2A AND 2B - DESCRIBE PARENT DATA FOR ANALYSIS ---------------------------------
@@ -217,12 +237,12 @@ datasummary(
   year + num_fam + child_under5 + spouse_working + spouse_earnings + spouse_housework + traditional +
   parent_spouse_working + parent_spouse_earnings + parent_spouse_housework + parent_traditional ~ Mean + SD + Min + Max + N, data = analysis2, 
   title = "Table 2A. Descriptive Statistics", 
-  output = "/Users/amanda/Desktop/categorical_final/5_analysis/output/Table2A_num.docx")
+  output = here("5_analysis", "output", "Table2A_num.docx"))
 
   datasummary(
   own_home + edu_cat_spouse + parent_data_side ~ N + Percent(), 
   data = analysis2, title = "Table 2B. Descriptive Statistics", 
-  output = "/Users/amanda/Desktop/categorical_final/5_analysis/output/Table2B_categ.docx")
+  output = here("5_analysis", "output", "Table2B_cat.docx"))
 
 
 # FIGURE 3 - SPECIFY LOGISTIC REGRESSIONS FOR PARENT-CHILD SAMPLE ------------------------
@@ -349,7 +369,12 @@ p <- ggplot(plot5, aes(x = year, y = estimate, color = factor(parent_spouse_hous
   ) +
   theme_classic()
 
-ggsave("5_analysis/output/Figure4_parent_housework.png", p, width = 8, height = 5, dpi = 300)
+ggsave(
+  filename = here("5_analysis", "output", "Figure4_parenthousework.pdf"),
+  plot = plot1,
+  width = 8,
+  height = 5
+)
 
 
 plot6 <- plot_predictions(
@@ -377,7 +402,12 @@ p <- ggplot(plot6, aes(x = parent_data_side, y = estimate, color = factor(parent
   ) +
   theme_classic()
 
-ggsave("5_analysis/output/Figure4_parent_housework_side.png", p, width = 8, height = 5, dpi = 300)
+ggsave(
+  filename = here("5_analysis", "output", "Figure4_parenthouseworkside.pdf"),
+  plot = plot1,
+  width = 8,
+  height = 5
+)
 
 
 # TABLE 3 - DESCRIPTIVE TABLE OF PARENT / CHILD CHANGE IN HOUSEHOLD STRUCTURE ---------------

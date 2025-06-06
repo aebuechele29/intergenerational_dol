@@ -1,5 +1,3 @@
-setwd("/Users/amanda/Desktop/categorical_final")
-
 # INPUTS: 1_build_panel/output/build.rds, functions/src/functions.R
 # OUTPUTS: 2_clean_panel/output/clean.rds
 
