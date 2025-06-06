@@ -1,6 +1,7 @@
 # INPUTS: 0_data/psid.xlsx, 0_data/fims/, 0_data/fam_ind/
 # OUTPUTS: Data frames for family data and indiviudal data, including parent and grandparent IDs from FIMs
 
+setwd("/Users/amanda/Desktop/categorical_final")
 
 # Load required libraries -------------------------------------------------
 if (!require("pacman")) install.packages("pacman", repos = "http://cran.us.r-project.org")
@@ -15,7 +16,14 @@ pacman::p_load(
   psidR,
   here,
   readxl,
-  data.table
+  data.table,
+  tableone, 
+  knitr,
+  nnet,
+  modelsummary,
+  kableExtra,
+  marginaleffects,
+  car
 )
 
 here::i_am("1_build_panel/src/build_panel.R")
@@ -102,47 +110,19 @@ create_sublist <- function(var_object, type_str) {
   }
 }
 
-# EXTRACT VARIABLES ---------------------------------------------------------------------------
 # Complete List of Variables ---------------------------------------------------
 vars <- list(
-  # IDENTIFIERS -------------------------------------------------------------
-  list(name = "ind_sample", varname = "sample", var = "ER32006"), # Sample
-  list(name = "ind_relation", varname = "relation", var = "ER30003"), # Individual relation to head [all years]
-  list(name = "ind_relation_b", varname = "married_pair", var = "ER30005"), # Married pairs indicator for constructing head_id and spouse_id
-  list(name = "fam_interview", varname = "interview", var = "V99"), # 1968 Interview Number [all years]
-  # list(name = "fam_relation", varname = "relation_construct_3", var = "V180"), # Family interview respondent's relation to head [all years]
-
-  # INCOME ------------------------------------------------------------------
-  list(name = "fam_income1", varname = "inc_all", var = "V81"), # Total family income [all years]
-  list(name = "fam_income2", varname = "inc_tax_hs", var = "V76"), # Total taxable income, head and spouse [all years]
-  list(name = "fam_income3", varname = "inc_tax_o", var = "V79"), # Total taxable income, others in FU [all years]
-  list(name = "fam_transfer1", varname = "inc_trans_hs", var = "V1220"), # Amount of total transfers, private + public for household heads and spouses [1970-2021]
-  list(name = "fam_transfer3", varname = "inc_trans_o1", var = "V527"), # Amount of total transfers, private + public for others in FU, pro-rated [1969-1993]
-  list(name = "fam_transfer4", varname = "inc_trans_o2", var = "V11576"), # Amount of total transfers, private + public for others in FU, not pro-rated [1985-2021]
+# Family Demographics ------------------------------------------------------------------
+  list(name = "fam_head_age", varname = "age_head", var = "V117"), # Age of head [all years]
+  list(name = "fam_spouse_age", varname = "age_spouse", var = "V118"), # Age of spouse [all years]
+  list(name = "fam_head_marital", varname = "marital_head", var = "V239"), # Marital status head, cohab as married [all years]
+  list(name = "fam_total_num", varname = "num_fam", var = "V115"), # Total number of family members [all years]
+  list(name = "fam_housing", varname = "housing", var = "V103"), # Housing status [all years]
+  list(name = "fam_inc", varname = "fam_inc", var = "V81"), # Total family income [all years]
+  list(name = "fam_region", varname = "region", var = "V361"), # Family region [all years]
+  list(name = "fam_state", varname = "state", var = "V93"), # Family state [all years]
   
-  # WEALTH ------------------------------------------------------------------
-  list(name = "fam_wealth_nohouse", varname = "wealth_nohouse", var = "S116"), # Family imputed wealth excluding house equity [all wealth supplement years]
-  list(name = "fam_wealth", varname = "wealth", var = "S117"), # Family imputed wealth including house equity [all wealth supplement years]
-  list(name = "fam_farmbus", varname = "wealth_farmbus", var = "S103"), # Imputed Value of farm and business assets [all wealth supplement years]
-  list(name = "fam_checking", varname = "wealth_checking", var = "S105"), # Imputed value of checking and savings [1984-2017]
-  list(name = "fam_debt", varname = "wealth_debt", var = "S107"), # Imputed Debt value [all wealth supplement years]
-  list(name = "fam_real_estate", varname = "wealth_re", var = "S109"), # Imputed real estate value, excluding home [1984-2011]
-  list(name = "fam_stocks", varname = "wealth_stocks", var = "S111"), # Imputed stock values [all wealth supplement years]
-  list(name = "fam_vehicle", varname = "wealth_vehicles", var = "S113"), # Vehicle value [all wealth supplement years]
-  list(name = "fam_other_assets", varname = "wealth_other", var = "S115"), # Bonds, insurance, and other collectible values [all wealth supplement years]
-  list(name = "fam_student_loans", varname = "student_loans", var = "ER48945"), # Student loan value [2011 - 2021]
-  list(name = "fam_home_equity", varname = "wealth_home", var = "S120"), # Home equity value [all wealth supplement years]
-
-  
-  # FAMILY CHARACTERISTICS --------------------------------------------------
-  list(name = "fam_sex", varname = "head_sex", var = "V119"), # Sex of Household Head [all years]
-  list(name = "fam_numfu", varname = "numfu", var = "V115"), # Number of People in Family Unit [all years]
-  list(name = "fam_num", varname = "fam_id", var = "V3"), # Family Number [all years]
-  list(name = "fam_house", varname = "house_status", var = "V103"), # Housing Status [all years]
-  # list(name = "fam_homevalue", varname = "home_value", var = "V5"), # Home Value [all years]
-  list(name = "fam_state", varname = "state", var = "V93"), # State of Residence [all years]
-  
-  # FAMILY RACE -------------------------------------------------------------
+# FAMILY RACE -------------------------------------------------------------
   list(name = "fam_headrace", varname = "race1_head", var = "V181"), # Race of household head [1968-2021]
   list(name = "fam_head2race", varname = "race2_head", var = "V11939"), # Race of household head 2 [1985-2021]
   list(name = "fam_head3race", varname = "race3_head", var = "ER3946"), # Race of household head 3 [1994-2021]
@@ -151,27 +131,34 @@ vars <- list(
   list(name = "fam_wife2race", varname = "race2_wife", var = "V12294"), # Race of household "wife" 2 [1985-2021]
   list(name = "fam_wife3race", varname = "race3_wife", var = "ER3885"), # Race of household "wife" 3 [1994-2021]
   list(name = "fam_wife4race", varname = "race4_wife", var = "ER11763"), # Race of household "wife" 4 [1997-2021]
-  
-  # INDIVIDUAL DEMOGRAPHICS -------------------------------------------------
-  list(name = "ind_age", varname = "age", var = "ER30004"), # Age of individual [all years]
-  list(name = "ind_death", varname = "yod", var = "ER32050"), # Year of death [all years]
-  list(name = "ind_male", varname = "male", var = "ER32000"), # Time invariant - gender [all years]
-  
-  # INDIVIDUAL EDUCATION ----------------------------------------------------
-  list(name = "ind_edu", varname = "edu", var = "ER30010"), # Years of education [1968-2021]
-  
-  # INDIVIDUAL FAMILY CHARACTERISTICS ---------------------------------------
-  list(name = "ind_children", varname = "children", var = "ER32022"), # Number of children [all years]
-  
-  # INDIVIDUAL WEIGHTS ------------------------------------------------------
-  # list(name = "ind_cross_weight", varname = "ind_cross_weight", var = "ER12224"), # Cross-sectional weight [1997-2019]
-  # list(name = "ind_weight", varname = "ind_weight", var = "ER12084"), # Longitudinal Combined Core [1997-2021]
-  list(name = "ind_cross_weight2", varname = "ind_cross_weight2", var = "ER33438"), # Individual Cross-Sectional Weight [1997-2021]
-  list(name = "ind_weight2", varname = "ind_weight2", var = "ER33430"), # Individual Weight [1997-2021]
-  list(name = "ind_stratum", varname = "stratum", var = "ER31996"), # Sampling Strata [all years]
-  list(name = "ind_cluster", varname = "cluster", var = "ER31997") # Sampling cluster [all years]
 
+# FAMILY TIME USE -------------------------------------------------------------
+  list(name = "fam_head_child", varname = "cc_head", var = "ER66718"), # Head childcare time [2017-2021]
+  list(name = "fam_spouse_child", varname = "cc_spouse", var = "ER66731"), # Spouse childcare time [2017-2021]
+  list(name = "fam_head_hw", varname = "hw_head", var = "V4609"), # Head housework time [1976-2021]
+  list(name = "fam_spouse_hw", varname = "hw_spouse", var = "V4768"), # Spouse housework time [1976-2021]
   
+  list(name = "fam_head_hrly", varname = "hrly_head", var = "V337"), # Head hourly earnings (per hour) [all years]
+  list(name = "fam_spouse_hrly", varname = "hrly_spouse", var = "V338"), # Spouse hourly earnings (per hour) [all years]
+  list(name = "fam_head_work", varname = "work_head", var = "V47"), # Annual head work time (hours) [all years]
+  list(name = "fam_spouse_work", varname = "work_spouse", var = "V53"), # Annual spouse work time (hours) [all years]
+
+# INDIVIDUAL VARIABLES ----------------------------------------------------
+  list(name = "ind_birthfirst", varname = "first_birth", var = "ER32024"), # First birth [all years]
+  list(name = "ind_birthlast", varname = "last_birth", var = "ER32026"), # Last birth = youngest child if 2+ children [all years]
+  list(name = "ind_birthsecond", varname = "second_birth", var = "ER32028"), # Second youngest child if 3+ children [all years]
+  list(name = "ind_birththird", varname = "third_birth", var = "ER32030"), # Third youngest child if 4+ children [all years]
+  list(name = "ind_birthfourth", varname = "fourth_birth", var = "ER32032"), # Fourth youngest child if 5+ children [all years]
+  list(name = "ind_total_births", varname = "births", var = "ER32022"), # Total number of births [all years]
+  list(name = "ind_sex", varname = "sex", var = "ER32000"), # Sex [all years]
+  list(name = "ind_edu", varname = "edu", var = "ER30010"), # Years of education [1968-2021]
+
+# IDENTIFIERS -------------------------------------------------------------
+  list(name = "ind_sequence", varname = "sequence", var = "ER30021"), # Interview sequence number [all years]
+  list(name = "ind_sample", varname = "sample", var = "ER32006"), # Sample
+  list(name = "ind_relation", varname = "relation", var = "ER30003"), # Individual relation to head [all years]
+  list(name = "fam_num", varname = "fam_id", var = "V3") # Family Number [all years]
+
 )
 
 # Process Variables Using the CWF File ------------------------------------------
@@ -222,12 +209,12 @@ psid_data <- psid_data %>%
   rename(
     release = ER30000,
     id1968 = ER30001,
-    sequence = ER30002
+    pernum = ER30002
   )
 
 # Add Unique PID to Individual and Family Data -----------------------------------
 psid_data <- psid_data %>%
-  mutate(pid = (id1968 * 1000) + sequence) %>%
+  mutate(pid = (id1968 * 1000) + pernum) %>%
   select(year, pid, everything())
 
 # Merge Family Identification Data ------------------------------------------

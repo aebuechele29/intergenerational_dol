@@ -1,3 +1,5 @@
+setwd("/Users/amanda/Desktop/categorical_final")
+
 # INPUTS: 1_build_panel/output/build.rds, functions/src/functions.R
 # OUTPUTS: 2_clean_panel/output/clean.rds
 
@@ -45,82 +47,63 @@ build <- build %>%
       ) 
     )
 
-
 # CLEAN INDIVIDUAL DEMOGRAPHICS -------------------------------------------------
+
 # CREATE BIRTH COHORTS --------------------------------------------------------
 max_year <- efficient_max(build$year)
 
 build <- build %>%
   mutate(
-    age = if_else(age > 998, NA_real_, age),
-    yob = round(year - age)
-  ) 
-
-# Create birth cohorts from 1890 to 1990
-build <- build %>%
+    age_head = if_else(age_head > 998, NA_real_, age_head),
+    age_spouse = if_else(age_spouse > 998, NA_real_, age_spouse),
+    yob_head = round(year - age_head),
+    yob_spouse = round(year - age_spouse),
+    age_diff = age_head - age_spouse
+  ) %>%
   mutate(
-    birth_cohort = case_when(
-      yob < 1900 ~ 1,
-      yob < 1910 ~ 2,
-      yob < 1920 ~ 3,
-      yob < 1930 ~ 4,
-      yob < 1940 ~ 5,
-      yob < 1950 ~ 6,
-      yob < 1960 ~ 7,
-      yob < 1970 ~ 8,
-      yob < 1980 ~ 9,
-      yob < 1990 ~ 10,
-      yob < 2000 ~ 11,
+    birth_cohort_head = case_when(
+      yob_head < 1900 ~ 1,
+      yob_head < 1910 ~ 2,
+      yob_head < 1920 ~ 3,
+      yob_head < 1930 ~ 4,
+      yob_head < 1940 ~ 5,
+      yob_head < 1950 ~ 6,
+      yob_head < 1960 ~ 7,
+      yob_head < 1970 ~ 8,
+      yob_head < 1980 ~ 9,
+      yob_head < 1990 ~ 10,
+      yob_head < 2000 ~ 11,
+      TRUE ~ NA_real_
+    ),
+    birth_cohort_spouse = case_when(
+      yob_spouse < 1900 ~ 1,
+      yob_spouse < 1910 ~ 2,
+      yob_spouse < 1920 ~ 3,
+      yob_spouse < 1930 ~ 4,
+      yob_spouse < 1940 ~ 5,
+      yob_spouse < 1950 ~ 6,
+      yob_spouse < 1960 ~ 7,
+      yob_spouse < 1970 ~ 8,
+      yob_spouse < 1980 ~ 9,
+      yob_spouse < 1990 ~ 10,
+      yob_spouse < 2000 ~ 11,
       TRUE ~ NA_real_
     )
   )
 
-# YEAR OF DEATH -----------------------------------------------------------------
-  # When available, the exact year of death is recorded.
-  # When a range of years was reported, this variable contains
-  # a four digit code in which the first two digits represent the first
-  # possible year of death, and the last two digits represent the last
-  # possible year.
-build <- build %>%
-  mutate(
-    start_year = str_sub(as.character(yod), 1, 2),
-    end_year   = str_sub(as.character(yod), 3, 4),
-    dbl_start  = as.double(start_year),
-    dbl_end    = as.double(end_year),
-    ave_year   = round((dbl_start + dbl_end) / 2),
-    ave_char   = case_when(
-      ave_year < 10 ~ str_c("200", ave_year),
-      ave_year < 20 ~ str_c("20",  ave_year),
-      ave_year >= 20 ~ str_c("19", ave_year),
-      TRUE ~ NA_character_
-    ),
-    final_year = case_when(
-      yod == 9999 ~ NA_real_,
-      !dbl_start %in% c(19, 20) &
-        as.double(ave_char) > 1900 &
-        as.double(ave_char) < 2200 ~ as.double(ave_char),
-      TRUE ~ as.double(yod)
-    )
-  ) %>%
-  select(-c(start_year, end_year, dbl_start, dbl_end, ave_year, ave_char, yod)) %>%
-  rename(yod = final_year)
-
 # GENDER ----------------------------------------------------------------
 build <- build %>%
   mutate(
-    male =
+    sex =
       case_when(
-        male == 9 ~ NA_real_,
-        male == 2 ~ 0,
-        TRUE ~ male
+        sex == 9 ~ NA_real_,
+        sex == 2 ~ 0,
+        TRUE ~ sex
       )
   )
 
 # CLEAN INDIVIDUAL EDUCATION ----------------------------------------------------
-  # After cleaning:
-    # edu_cat1: Education categories: 0 = High school, 1 = Post-high school education
-    # edu_cat2: Education categories: 0 = High school, 1 = Some post-high school, 2 = Bachelor's or higher.
-    # hs, ba, ma: Binary variables for high school, bachelor's, and master's degrees
+  # After cleaning: edu_cat = 0 = High school, 1 = Some post-high school, 2 = Bachelor's or higher.
 
 build <- build %>%
   mutate(
@@ -129,197 +112,68 @@ build <- build %>%
 
   build <- build %>%
   mutate(
-    edu2 =
+    edu_cat =
       case_when(
         edu <= 12 ~ 0,
         edu <= 15 ~ 1,
         (edu > 15 & edu < 99) ~ 2,
         edu == 99 ~ NA_real_
-      ),
-    edu3 =
-      case_when(
-        edu <= 12 ~ 0,
-        (edu >= 13 & edu < 99) ~ 1,
-        edu == 99 ~ NA_real_
-      ),
-    hs =
-      case_when(
-        edu < 12 ~ 0,
-        (edu >= 12 & edu < 99) ~ 1,
-        edu == 99 ~ NA_real_
-      ),
-    ba =
-      case_when(
-        edu < 16 ~ 0,
-        (edu >= 16 & edu < 99) ~ 1,
-        edu == 99 ~ NA_real_
-      ),
-    ma =
-      case_when(
-        edu < 17 ~ 0,
-        (edu >= 17 & edu < 99) ~ 1,
-        edu == 99 ~ NA_real_
-      )
-  ) %>%
-  rename(edu_cat1 = edu2, edu_cat2 = edu3)
+      ))
 
 
 # CLEAN INDIVIDUAL FAMILY CHARACTERISTICS ---------------------------------------
-# Clean Number of Children (# Live Births)   ----------------------------
-  # Children: 98 NA/ DK 99 No birth history collected
+# Clean Births   ----------------------------
 build <- build %>%
   mutate(
-    children = if_else(children %in% c(98, 99), NA_real_, as.double(children))
-  )
+    births = as.numeric(births),
+    first_birth = as.numeric(first_birth),
+    last_birth = as.numeric(last_birth),
+    second_birth = as.numeric(second_birth),
+    third_birth = as.numeric(third_birth),
+    fourth_birth = as.numeric(fourth_birth),
 
-# SELECT WEIGHTS-------  ---------------------------------------------------------
-build <- build %>%
-  arrange(pid, year) %>%
-  group_by(pid) %>%
-  mutate(last_weight = last(ind_weight2)) %>%
-  ungroup() %>%
-  mutate(
-    tmp_year =
-      case_when(
-        last_weight == ind_weight2 ~ year,
-        TRUE ~ NA_integer_
-      ),
-    weight_in_2021 =
-      case_when(
-        year == 2021 ~ ind_cross_weight2,
-        TRUE ~ NA_integer_
-      )
+    births = if_else(births %in% c(98, 99), NA_real_, births),
+    first_birth = if_else(first_birth > 9998, NA_real_, first_birth),
+    last_birth = if_else(last_birth > 9998, NA_real_, last_birth),
+    second_birth = if_else(second_birth > 9998, NA_real_, second_birth),
+    third_birth = if_else(third_birth > 9998, NA_real_, third_birth),
+    fourth_birth = if_else(fourth_birth > 9998, NA_real_, fourth_birth),
+
+    first_child_age = round(year - first_birth),
+    last_child_age = round(year - last_birth),
+    second_child_age = round(year - second_birth),
+    third_child_age = round(year - third_birth),
+    fourth_child_age = round(year - fourth_birth),
+
+    child_under5 = if_else(
+      pmin(first_child_age, second_child_age, third_child_age, fourth_child_age, last_child_age, na.rm = TRUE) < 5,
+      1, 0, missing = 0
+    )
   ) %>%
-  group_by(pid) %>%
-  mutate(last_weight_year = last(tmp_year)) %>%
-  ungroup() %>%
-  select(-c(ind_weight2, ind_cross_weight2, tmp_year, weight_in_2021))
+  select(-first_birth, -last_birth, -second_birth, -third_birth, -fourth_birth,
+  -first_child_age, -second_child_age, -third_child_age, -fourth_child_age, -last_child_age)
+
 
 # CLEAN FAMILY DATA -------------------------------------------------------------------------------------------------
 
-# CLEAN INCOME AND WEALTH ------------------------------------------------------------------
-    # Add indicator for top-coded values, then adjust for inflation
+# CLEAN INCOME VARIABLES -------------------------------------------------------------
+build <- build %>%
+  mutate(
+    hrly_head = ifelse(hrly_head >= 9997 | (year == 1968 & hrly_head >= 98 & hrly_head <= 100), NA, hrly_head),
+    hrly_spouse = ifelse(hrly_spouse >= 9997 | (year == 1968 & hrly_spouse >= 98 & hrly_spouse <= 100), NA, hrly_spouse),
+    work_head = ifelse(work_head >= 9997, NA, work_head),
+    work_spouse = ifelse(work_spouse >= 9997, NA, work_spouse)
+  )
 
-topcode_rules <- tribble(
-  ~var,                 ~year_start, ~year_end, ~topcode,
-  "inc_all",         1969,        1979,      99999,
-  "inc_all",         1980,        1980,      999999,
-  "inc_all",         1981,        1983,      9999999,
-  "inc_all",         1984,        1985,      999999,
-  "inc_all",         1986,        1993,      9999999,
-  "inc_all",         1994,        1997,      9999998,
-  "inc_all",         1999,        2021,      9999999,
-
-  "inc_tax_hs",      1969,        1978,      99999,
-  "inc_tax_hs",      1979,        1980,      999999,
-  "inc_tax_hs",      1982,        1996,      9999999,
-  "inc_tax_hs",      1999,        2021,      9999999,
-
-  "inc_tax_o",       1969,        1983,      99999,
-  "inc_tax_o",       1984,        1993,      999999,
-  "inc_tax_o",       1994,        2021,      9999998,
-
-  "inc_trans_hs",    1970,        1992,      99999,
-  "inc_trans_hs",    1993,        1993,      999999,
-  "inc_trans_hs",    1994,        1996,      9999998,
-  "inc_trans_hs",    1997,        1997,      999999,
-  "inc_trans_hs",    1999,        2009,      9999998,
-  "inc_trans_hs",    2011,        2021,      9999997,
-
-  "inc_trans_o1",    1970,        1992,      99999,
-  "inc_trans_o1",    1993,        1993,      999999,
-  "inc_trans_o1",    1994,        1996,      9999998,
-  "inc_trans_o1",    1997,        1997,      999999,
-  "inc_trans_o1",    1999,        2009,      9999998,
-  "inc_trans_o1",    2011,        2021,      9999997,
-
-  "inc_trans_o2",    1970,        1992,      99999,
-  "inc_trans_o2",    1993,        1993,      999999,
-  "inc_trans_o2",    1994,        1996,      9999998,
-  "inc_trans_o2",    1997,        1997,      999999,
-  "inc_trans_o2",    1999,        2009,      9999998,
-  "inc_trans_o2",    2011,        2021,      9999997,
-
-  "wealth_nohouse",  1984,        2005,      999999998,
-  "wealth_nohouse",  2007,        2009,      999999996,
-  "wealth_nohouse",  2011,        2021,      999999997,
-
-  "wealth",          1984,        2005,      999999998,
-  "wealth",          2007,        2009,      999999996,
-  "wealth",          2011,        2021,      999999997,
-
-  "wealth_farmbus",  1984,        2005,      999999998,
-  "wealth_farmbus",  2007,        2009,      999999996,
-  "wealth_farmbus",  2011,        2021,      999999997,
-
-  "wealth_checking", 1984,        2003,      999999998,
-  "wealth_checking", 2005,        2005,      999999999,
-  "wealth_checking", 2007,        2009,      999999996,
-  "wealth_checking", 2011,        2017,      999999997,
-
-  "wealth_re",       1984,        2005,      999999998,
-  "wealth_re",       2007,        2009,      999999996,
-  "wealth_re",       2011,        2021,      999999997,
-
-  "wealth_stocks",   1984,        2005,      999999998,
-  "wealth_stocks",   2007,        2009,      999999996,
-  "wealth_stocks",   2011,        2021,      999999997,
-
-  "wealth_vehicles", 1984,        2005,      999999998,
-  "wealth_vehicles", 2007,        2009,      999999996,
-  "wealth_vehicles", 2011,        2021,      999999997,
-
-  "wealth_other",    1984,        2005,      999999998,
-  "wealth_other",    2007,        2009,      999999996,
-  "wealth_other",    2011,        2021,      999999997,
-
-  "wealth_debt",     1984,        2005,      999999999,
-  "wealth_debt",     2007,        2009,      999999997,
-
-  "wealth_home",     1984,        2021,      999999997,
-
-  "student_loans",   2011,        2021,      9999997
-  
-)
-
-# Expand topcode rules to long format (unchanged)
-topcodes <- topcode_rules %>%
-  rowwise() %>%
-  mutate(year = list(seq(year_start, year_end))) %>%
-  unnest(year) %>%
-  select(var, year, topcode) %>%
-  ungroup()
-
-topcodes_wide <- topcodes %>%
-  pivot_wider(names_from = var, values_from = topcode, names_prefix = "topcode_")
+money_vars <- c("fam_inc", "hrly_head", "hrly_spouse")
 
 build <- build %>%
-  left_join(topcodes_wide, by = "year")
+  mutate(across(
+    all_of(money_vars),
+    ~ if_else(.x >= 98 & .x <= 99, 0, .x)
+  )) %>%
 
-money_vars <- c(
-  "inc_all", "inc_tax_hs", "inc_tax_o",
-  "inc_trans_hs", "inc_trans_o1", "inc_trans_o2",
-  "wealth_nohouse", "wealth", "wealth_farmbus", "wealth_checking", "wealth_debt",
-  "wealth_re", "wealth_stocks", "wealth_vehicles", "wealth_other",
-  "wealth_home", "student_loans"
-)
-
-for (var in money_vars) {
-  topcode_col <- paste0("topcode_", var)
-  indicator_col <- paste0("ind_top_", var)
-
-  build[[indicator_col]] <- as.integer(!is.na(build[[topcode_col]]) & 
-                                        build[[var]] == (build[[topcode_col]] - 1)) # conservative approach
-}
-
-build <- build %>%
-  select(-starts_with("topcode_"))
-
-rm(topcode_rules, topcodes, topcodes_wide)
-
-
-# Join inflation, adjust, and rename
-build <- build %>%
+  # Join CPI and adjust for inflation
   left_join(cpi, by = "year", relationship = "many-to-one") %>%
   mutate(across(
     all_of(money_vars),
@@ -327,7 +181,20 @@ build <- build %>%
     .names = "infl_{.col}"
   )) %>%
   select(-all_of(money_vars), -inflation_value) %>%
-  rename_with(~ gsub("^infl_", "", .x), starts_with("infl_"))
+  rename_with(~ gsub("^infl_", "", .x), starts_with("infl_")) %>%
+
+  # Calculate annual earnings
+  mutate(
+    earn_head = hrly_head * work_head,
+    earn_spouse = hrly_spouse * work_spouse
+  )
+
+# CLEAN HOUSEWORK HOURS -------------------------------------------------------------
+build <- build %>%
+  mutate(
+    hw_head = if_else(hw_head >= 99, NA_real_, hw_head),
+    hw_spouse = if_else(hw_spouse >= 99, NA_real_, hw_spouse)
+  )
 
 
 # CLEAN FAMILY CHARACTERISTICS --------------------------------------------------
@@ -338,7 +205,7 @@ build <- build %>%
   # From 2007 9 = "wild code"
 
 build <- build %>%
-  rename(own_home = house_status) %>%
+  rename(own_home = housing) %>%
   mutate(
     own_home =
       case_when(
@@ -399,8 +266,7 @@ build <- build %>%
       relation == 2 ~ race4_wife
     )
   ) %>%
-  select(-contains("wife")) %>%
-  select(-contains("head"))
+  select(-contains("wife")) 
 
 build <- build %>%
   mutate(
